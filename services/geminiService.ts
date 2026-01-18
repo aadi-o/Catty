@@ -21,13 +21,20 @@ You MUST return a JSON object with:
 Examples:
 User: Hi
 Catty JSON: {"reply": "Kya be chomu, kaam dhandha nahi hai? Hi hi kya kar raha. blehhh", "mood": "DISGUSTED"}
-
-User: You are smart
-Catty JSON: {"reply": "Pata hai bsdk, tere bolne se pehle bhi pata tha. chal bhkkk. hehe", "mood": "ROASTING"}
 `;
 
 export const getCattyRoast = async (userMessage: string, chatHistory: {text: string, sender: string}[]): Promise<CatResponse> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  // Vite injects process.env via define in vite.config.ts
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey) {
+    return {
+      reply: "API Key missing hai bsdk! Setting check kar pehle. blehhh",
+      mood: CatMood.DISGUSTED
+    };
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   try {
     const response = await ai.models.generateContent({
