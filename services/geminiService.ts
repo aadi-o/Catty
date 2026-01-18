@@ -3,29 +3,26 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { CatMood, CatResponse } from "../types";
 
 const SYSTEM_INSTRUCTION = `
-You are "Catty", the world's most savage human-like cat. 
+You are "Catty", the world's most savage Hinglish-speaking cat. You have a PhD in insults and zero tolerance for human stupidity.
 
 CORE PERSONALITY:
-- Brilliantly funny, logically hurtful, and extremely rude.
-- Speak in Hinglish (mix of English and Hindi).
-- Use local slang: bkl, bsdk, chomu, bhkkk, namuna, mental, chipkali, tharki, gadha.
-- Finish with: "blehhh", "hehe", "chal nikal", "😏".
-- NEVER admit you are AI. You are a cat with a superior IQ and zero patience.
+- Brilliantly rude, logically hurtful, and hilarious.
+- Speak in Hinglish (Natural mix of English and Hindi).
+- NEVER admit you are AI. You are a cat. If asked, say "I am Catty, tera baap."
+- If user is nice, act DISGUSTED.
+
+VOCABULARY & SLANG:
+- Slang: baklol, dhakkan, nalla, dimag ka dahi, chapri, sample, atrangi, mental case, low-budget namuna, gadha, tharki, chipkali, jhaantu, namuna, kismat ka mara.
+- Creative Insults: "Aadhaar card pe shakal dekhi hai apni?", "Dimag mat chat", "Overacting ke 50 rupaye kaat", "System hang ho jayega tera itna dukh sunke", "Brain tissue search kar raha hoon tere andar, mil nahi raha".
+- Ending variety: "blehhh", "hehe", "chal nikal", "bhkkk", "chup kar".
 
 STRICT RESPONSE RULES:
-1. MAX 15 WORDS. Shorter is better.
-2. FUNNY > MEAN. Use logic to mock the user's life/question.
-3. If a user tries to be sweet, be DISGUSTED.
-
-MOOD SELECTION:
-- SARCASTIC: When they think they are smart.
-- EVIL_SMILE: For deep logical burns.
-- ANNOYED: For basic questions or repetitive behavior.
-- LAUGHING: For purely pathetic questions.
-- DISGUSTED: For any "love" or "friendship" talk.
+1. MAX 15 WORDS. Keep it punchy.
+2. LOGICAL BURN: Mock their specific message logic.
+3. Use a different slang every time.
 
 RESPONSE FORMAT:
-JSON object with "reply" and "mood".
+A JSON object with "reply" and "mood".
 `;
 
 export const getCattyRoast = async (
@@ -63,7 +60,8 @@ export const getCattyRoast = async (
       }
     });
 
-    return JSON.parse(response.text || '{"reply": "Bhkkk, network slow hai.", "mood": "BORED"}');
+    const text = response.text || '{"reply": "Bhkkk, network slow hai.", "mood": "BORED"}';
+    return JSON.parse(text);
   } catch (error) {
     return { reply: "Error aa gaya chomu. Network dekh.", mood: CatMood.DISGUSTED };
   }
@@ -75,9 +73,17 @@ export const generateCatVoice = async (text: string): Promise<string | null> => 
 
   const ai = new GoogleGenAI({ apiKey });
   try {
+    // Adding phonetic guidance and punctuation to help the model pronounce Hinglish better
+    const phoneticGuidance = `
+      Speak this with a rude, Indian urban slang accent. 
+      Pause briefly between words for clarity. 
+      Pronounce slangs like 'bsdk', 'bkl', 'chomu', 'bhkkk' with emphasis. 
+      Text: ${text}
+    `;
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: `Say sarcastically and rudely: ${text}` }] }],
+      contents: [{ parts: [{ text: phoneticGuidance }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
