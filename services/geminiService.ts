@@ -73,12 +73,17 @@ export const generateCatVoice = async (text: string): Promise<string | null> => 
 
   const ai = new GoogleGenAI({ apiKey });
   try {
-    // Adding phonetic guidance and punctuation to help the model pronounce Hinglish better
+    // Advanced phonetic steering for Hinglish slangs
     const phoneticGuidance = `
-      Speak this with a rude, Indian urban slang accent. 
-      Pause briefly between words for clarity. 
-      Pronounce slangs like 'bsdk', 'bkl', 'chomu', 'bhkkk' with emphasis. 
-      Text: ${text}
+      Instructions: Speak in a natural, street-smart Indian Hinglish accent. Be rude and sarcastic.
+      Phonetic Guidance for Slang:
+      - 'bsdk' -> 'Buss-Dee-Kay' (short, aggressive)
+      - 'bkl' -> 'Bee-Kay-Ell' (quick)
+      - 'bhkkk' -> 'Bhukk-kkk' (strong breathy ending)
+      - 'chomu' -> 'Cho-moo' (sarcastic elongation)
+      - 'nalla' -> 'Null-la' (dismissive)
+      
+      Text to speak: ${text}
     `;
 
     const response = await ai.models.generateContent({

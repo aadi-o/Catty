@@ -12,24 +12,25 @@ const SUGGESTIONS = [
   "Am I smart? 🧠"
 ];
 
-const MOOD_BG: Record<CatMood, string> = {
+// Refined Mood Gradients for better blending
+const MOOD_GRADIENTS: Record<CatMood, string> = {
   [CatMood.NEUTRAL]: 'from-black via-zinc-950 to-black',
-  [CatMood.ROASTING]: 'from-red-950/50 via-black to-black',
-  [CatMood.LAUGHING]: 'from-emerald-950/40 via-black to-black',
-  [CatMood.DISGUSTED]: 'from-purple-950/50 via-black to-black',
-  [CatMood.BORED]: 'from-zinc-900/60 via-black to-black',
-  [CatMood.ANGRY]: 'from-red-900/70 via-black to-black',
-  [CatMood.SMUG]: 'from-indigo-950/60 via-black to-black',
-  [CatMood.SURPRISED]: 'from-yellow-950/40 via-black to-black',
-  [CatMood.SLEEPY]: 'from-blue-950/30 via-black to-black',
-  [CatMood.HAPPY_SMILE]: 'from-green-950/40 via-black to-black',
-  [CatMood.EVIL_SMILE]: 'from-red-950/80 via-black to-black',
-  [CatMood.CURIOUS]: 'from-cyan-950/40 via-black to-black',
-  [CatMood.ANNOYED]: 'from-orange-950/50 via-black to-black',
-  [CatMood.PLOTTING]: 'from-emerald-950/60 via-black to-black',
-  [CatMood.SARCASTIC]: 'from-purple-900/50 via-black to-black',
-  [CatMood.THINKING]: 'from-blue-950/50 via-black to-black',
-  [CatMood.SILLY]: 'from-pink-950/40 via-black to-black',
+  [CatMood.ROASTING]: 'from-red-950/40 via-black to-black',
+  [CatMood.LAUGHING]: 'from-emerald-950/30 via-black to-black',
+  [CatMood.DISGUSTED]: 'from-purple-950/40 via-black to-black',
+  [CatMood.BORED]: 'from-zinc-900/50 via-black to-black',
+  [CatMood.ANGRY]: 'from-red-900/60 via-black to-black',
+  [CatMood.SMUG]: 'from-indigo-950/50 via-black to-black',
+  [CatMood.SURPRISED]: 'from-yellow-950/30 via-black to-black',
+  [CatMood.SLEEPY]: 'from-blue-950/20 via-black to-black',
+  [CatMood.HAPPY_SMILE]: 'from-green-950/30 via-black to-black',
+  [CatMood.EVIL_SMILE]: 'from-red-950/70 via-black to-black',
+  [CatMood.CURIOUS]: 'from-cyan-950/30 via-black to-black',
+  [CatMood.ANNOYED]: 'from-orange-950/40 via-black to-black',
+  [CatMood.PLOTTING]: 'from-emerald-950/50 via-black to-black',
+  [CatMood.SARCASTIC]: 'from-purple-900/40 via-black to-black',
+  [CatMood.THINKING]: 'from-blue-950/40 via-black to-black',
+  [CatMood.SILLY]: 'from-pink-950/30 via-black to-black',
 };
 
 const PawLoading = () => (
@@ -70,10 +71,12 @@ function App() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentMood, setCurrentMood] = useState<CatMood>(CatMood.DISGUSTED);
+  const [prevMood, setPrevMood] = useState<CatMood>(CatMood.DISGUSTED);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  
   const [lastCatReply, setLastCatReply] = useState('');
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
-  
   const [pokeCount, setPokeCount] = useState(0);
   const [lastPokeTime, setLastPokeTime] = useState(0);
 
@@ -81,7 +84,17 @@ function App() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  const bgGradient = useMemo(() => MOOD_BG[currentMood] || MOOD_BG[CatMood.NEUTRAL], [currentMood]);
+  // Background Crossfade logic
+  useEffect(() => {
+    if (currentMood !== prevMood) {
+      setIsTransitioning(true);
+      const timer = setTimeout(() => {
+        setPrevMood(currentMood);
+        setIsTransitioning(false);
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [currentMood, prevMood]);
 
   const triggerHaptic = (type: 'light' | 'heavy' | 'double') => {
     if (!window.navigator.vibrate) return;
@@ -91,38 +104,10 @@ function App() {
   };
 
   useEffect(() => {
-    let lastX: number | null = null;
-    let lastY: number | null = null;
-    let lastZ: number | null = null;
-    const threshold = 18;
-
-    const handleMotion = (event: DeviceMotionEvent) => {
-      const { x, y, z } = event.accelerationIncludingGravity || {};
-      if (x === null || y === null || z === null) return;
-      if (lastX !== null) {
-        const deltaX = Math.abs(lastX - x!);
-        const deltaY = Math.abs(lastY! - y!);
-        const deltaZ = Math.abs(lastZ! - z!);
-        if (deltaX > threshold || deltaY > threshold || deltaZ > threshold) {
-          if (!isLoading) {
-            handleSend("Don't shake me bsdk! Headache ho raha hai namuna. blehhh");
-          }
-        }
-      }
-      lastX = x!; lastY = y!; lastZ = z!;
-    };
-    if (window.DeviceMotionEvent) {
-      window.addEventListener('devicemotion', handleMotion);
-    }
-    return () => window.removeEventListener('devicemotion', handleMotion);
-  }, [isLoading]);
-
-  useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'hi-IN';
       recognitionRef.current.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
@@ -179,23 +164,18 @@ function App() {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     
-    // Determine the immediate "reaction" mood
+    // Immediate reactive mood
     const lowerText = messageText.toLowerCase();
     let reactionMood = CatMood.CURIOUS;
-    if (messageText.length > 70) {
-      reactionMood = CatMood.SLEEPY;
-    } else if (messageText.length < 10) {
-      reactionMood = CatMood.SILLY;
-    } else if (lowerText.includes('cute') || lowerText.includes('love') || lowerText.includes('friend')) {
-      reactionMood = CatMood.DISGUSTED;
-    } else if (lowerText.includes('bkl') || lowerText.includes('bsdk') || lowerText.includes('chomu')) {
-      reactionMood = CatMood.ANGRY;
-    }
+    if (messageText.length > 60) reactionMood = CatMood.SLEEPY;
+    else if (messageText.length < 12) reactionMood = CatMood.SURPRISED;
+    else if (lowerText.includes('cute') || lowerText.includes('love')) reactionMood = CatMood.DISGUSTED;
+    else if (lowerText.includes('bkl') || lowerText.includes('bsdk')) reactionMood = CatMood.ANGRY;
     
     setCurrentMood(reactionMood);
 
-    // Briefly show the reaction before transitioning into the thinking animation
-    await new Promise(r => setTimeout(r, 800));
+    // Give user time to see the reaction before switching to thinking
+    await new Promise(r => setTimeout(r, 900));
 
     setIsLoading(true);
     setCurrentMood(CatMood.THINKING);
@@ -228,11 +208,8 @@ function App() {
   const pokeCat = () => {
     triggerHaptic('double');
     const now = Date.now();
-    if (now - lastPokeTime < 800) {
-      setPokeCount(prev => prev + 1);
-    } else {
-      setPokeCount(1);
-    }
+    if (now - lastPokeTime < 800) setPokeCount(prev => prev + 1);
+    else setPokeCount(1);
     setLastPokeTime(now);
 
     const pokes = ["Hath mat laga bsdk! 😏", "Touch kyu kar raha hai mental? blehhh", "Dur reh gadhe, tharki hai kya? 😼", "Personal space ka naam suna hai chomu? bhkkk"];
@@ -246,17 +223,6 @@ function App() {
 
   const clearChat = () => {
     triggerHaptic('light');
-    
-    if (pokeCount >= 5) {
-      const easterEggMsg = "Abey saale! Chat clear karne se teri aukat clear nahi hogi. Pokey mental, nikal yahan se! hehe";
-      setMessages([{ id: Date.now().toString(), text: easterEggMsg, sender: 'cat', mood: CatMood.EVIL_SMILE, timestamp: Date.now() }]);
-      setCurrentMood(CatMood.EVIL_SMILE);
-      setLastCatReply(easterEggMsg);
-      setPokeCount(0);
-      if (voiceEnabled) generateCatVoice(easterEggMsg).then(v => v && playAudio(v));
-      return;
-    }
-
     setMessages([{ id: Date.now().toString(), text: "Memory clean? Chomu hi rahega tu. hehe", sender: 'cat', mood: CatMood.LAUGHING, timestamp: Date.now() }]);
     setCurrentMood(CatMood.LAUGHING);
     setLastCatReply('');
@@ -264,8 +230,14 @@ function App() {
   };
 
   return (
-    <div className={`flex flex-col h-[100dvh] bg-gradient-to-b ${bgGradient} text-white transition-all duration-[1200ms] ease-in-out overflow-hidden relative selection:bg-white selection:text-black`}>
-      <header className="flex items-center justify-between px-4 md:px-8 py-2 md:py-4 border-b border-white/5 bg-black/70 backdrop-blur-3xl z-50 pt-[env(safe-area-inset-top)]">
+    <div className="flex flex-col h-[100dvh] bg-black text-white overflow-hidden relative selection:bg-white selection:text-black">
+      {/* Background Layer 1 (Previous) */}
+      <div className={`absolute inset-0 bg-gradient-to-b ${MOOD_GRADIENTS[prevMood]} z-0`} />
+      
+      {/* Background Layer 2 (New) */}
+      <div className={`absolute inset-0 bg-gradient-to-b ${MOOD_GRADIENTS[currentMood]} z-1 transition-opacity duration-[1200ms] ease-in-out ${isTransitioning ? 'opacity-100' : 'opacity-100'}`} />
+
+      <header className="flex items-center justify-between px-4 md:px-8 py-2 md:py-4 border-b border-white/5 bg-black/70 backdrop-blur-3xl z-50 pt-[env(safe-area-inset-top)] relative">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-zinc-900 border border-white/10 rounded-lg md:rounded-xl shadow-inner">
             <Ghost size={18} strokeWidth={2.5} className="md:w-5 md:h-5" />
@@ -286,32 +258,30 @@ function App() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative z-10">
         <div className="scanner"></div>
 
-        {/* Avatar Section - Fluid scale for mobile vs desktop */}
-        <div className="h-[25dvh] md:h-full w-full md:w-[35%] flex flex-col items-center justify-center p-2 md:p-6 bg-black/40 md:bg-transparent md:border-r border-white/5 z-40 overflow-hidden relative transition-all duration-1000">
-          <div className="w-full h-full max-w-[150px] md:max-w-[340px] transform scale-[0.8] md:scale-100 origin-center cursor-pointer active:scale-[0.7] transition-transform duration-500" onClick={pokeCat}>
+        <div className="h-[25dvh] md:h-full w-full md:w-[35%] flex flex-col items-center justify-center p-2 md:p-6 bg-black/40 md:bg-transparent md:border-r border-white/5 overflow-hidden relative transition-all duration-1000">
+          <div className="w-full h-full max-w-[160px] md:max-w-[360px] transform scale-[0.85] md:scale-100 origin-center cursor-pointer active:scale-[0.75] transition-transform duration-500" onClick={pokeCat}>
             <CatAvatar mood={currentMood} lastReply={lastCatReply} />
           </div>
-          <div className="absolute bottom-2 md:bottom-8 px-4 md:px-6 py-1 md:py-2 bg-zinc-900/90 rounded-full border border-white/10 backdrop-blur-xl shadow-2xl animate-pulse">
-            <span className="text-[8px] md:text-[11px] text-zinc-300 font-black tracking-[0.2em] uppercase">{currentMood}</span>
+          <div className="absolute bottom-4 md:bottom-12 px-5 md:px-7 py-1.5 md:py-2.5 bg-zinc-950/80 rounded-full border border-white/10 backdrop-blur-2xl shadow-2xl animate-pulse">
+            <span className="text-[8px] md:text-[11px] text-zinc-400 font-black tracking-[0.25em] uppercase">{currentMood}</span>
           </div>
         </div>
 
-        {/* Chat History Section */}
         <div className="flex-1 flex flex-col relative h-full overflow-hidden">
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-20 lg:px-32 pt-6 pb-48 md:pb-60 space-y-6 md:space-y-10 no-scrollbar scroll-smooth">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-20 lg:px-32 pt-6 pb-52 md:pb-64 space-y-6 md:space-y-12 no-scrollbar scroll-smooth">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} message-pop`}>
                 <div className="max-w-[92%] md:max-w-[80%]">
-                  <div className={`px-4 md:px-7 py-3 md:py-5 rounded-xl md:rounded-[3rem] text-sm md:text-xl shadow-2xl transition-all duration-500 ${
-                    msg.sender === 'user' ? 'bg-white text-black font-extrabold rounded-tr-none' : 'bg-zinc-900/95 text-zinc-100 rounded-tl-none border border-white/10 backdrop-blur-lg'
+                  <div className={`px-4 md:px-8 py-3.5 md:py-6 rounded-xl md:rounded-[3.2rem] text-sm md:text-xl shadow-2xl transition-all duration-700 ${
+                    msg.sender === 'user' ? 'bg-white text-black font-extrabold rounded-tr-none' : 'bg-zinc-950/90 text-zinc-100 rounded-tl-none border border-white/10 backdrop-blur-lg'
                   }`}>
                     {msg.text}
                     {msg.sender === 'cat' && msg.audioData && (
-                      <button onClick={() => playAudio(msg.audioData!)} className="ml-3 md:ml-5 inline-flex items-center justify-center opacity-40 hover:opacity-100 hover:text-white transition-all">
-                        <Volume2 size={14} className="md:w-5 md:h-5" />
+                      <button onClick={() => playAudio(msg.audioData!)} className="ml-3 md:ml-6 inline-flex items-center justify-center opacity-40 hover:opacity-100 hover:text-white transition-all">
+                        <Volume2 size={14} className="md:w-6 md:h-6" />
                       </button>
                     )}
                   </div>
@@ -320,26 +290,25 @@ function App() {
             ))}
             {isLoading && (
               <div className="flex justify-start message-pop">
-                <div className="bg-zinc-900/70 px-5 md:px-8 py-3 md:py-5 rounded-2xl md:rounded-[2.5rem] rounded-tl-none border border-white/10 flex gap-2 items-center backdrop-blur-xl">
+                <div className="bg-zinc-950/70 px-6 md:px-9 py-4 md:py-6 rounded-2xl md:rounded-[2.8rem] rounded-tl-none border border-white/10 flex gap-2 items-center backdrop-blur-2xl">
                   <PawLoading />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Input Area - Optimized for better mobile reach */}
-          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-8 lg:p-12 space-y-4 md:space-y-6 bg-gradient-to-t from-black via-black/95 to-transparent z-50 pb-[env(safe-area-inset-bottom)]">
-            <div className="flex gap-2 md:gap-3 overflow-x-auto pb-1 no-scrollbar max-w-2xl mx-auto px-2 mask-linear-fade">
+          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-10 lg:p-14 space-y-5 md:space-y-8 bg-gradient-to-t from-black via-black/98 to-transparent z-50 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            <div className="flex gap-2.5 md:gap-4 overflow-x-auto pb-1 no-scrollbar max-w-2xl mx-auto px-2">
               {SUGGESTIONS.map((s, i) => (
-                <button key={i} onClick={() => handleSend(s)} className="whitespace-nowrap px-4 md:px-6 py-2 md:py-3 bg-zinc-900/95 border border-white/10 rounded-xl md:rounded-2xl text-[10px] md:text-xs font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-white/20 transition-all shadow-xl active:scale-95">
+                <button key={i} onClick={() => handleSend(s)} className="whitespace-nowrap px-4.5 md:px-7 py-2.5 md:py-4 bg-zinc-950/95 border border-white/10 rounded-xl md:rounded-2xl text-[10px] md:text-xs font-bold text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all shadow-2xl active:scale-95">
                   {s}
                 </button>
               ))}
             </div>
 
-            <div className="max-w-4xl mx-auto glass rounded-2xl md:rounded-[2.5rem] p-1.5 md:p-2.5 flex items-center shadow-[0_20px_80px_-15px_rgba(0,0,0,1)] relative transition-all duration-300 focus-within:ring-2 ring-white/10 focus-within:scale-[1.01]">
-              <button onClick={toggleListening} className={`p-3 md:p-5 transition-all duration-300 ${isListening ? 'text-red-500 scale-125' : 'text-zinc-500 hover:text-white hover:rotate-12'}`} title="Speak to Catty">
-                {isListening ? <MicOff size={20} className="md:w-6 md:h-6" /> : <Mic size={20} className="md:w-6 md:h-6" />}
+            <div className="max-w-4xl mx-auto glass rounded-2xl md:rounded-[3rem] p-2 md:p-3 flex items-center shadow-[0_25px_100px_-20px_rgba(0,0,0,1)] relative transition-all duration-300 focus-within:ring-2 ring-white/20 focus-within:scale-[1.015]">
+              <button onClick={toggleListening} className={`p-3 md:p-6 transition-all duration-300 ${isListening ? 'text-red-500 scale-125' : 'text-zinc-500 hover:text-white hover:rotate-12'}`} title="Speak to Catty">
+                {isListening ? <MicOff size={22} className="md:w-7 md:h-7" /> : <Mic size={22} className="md:w-7 md:h-7" />}
               </button>
               
               <input 
@@ -348,25 +317,25 @@ function App() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder={isListening ? "Listening..." : "Savage roast chahiye? Bol..."}
-                className="flex-1 bg-transparent border-none px-2 md:px-4 py-3 md:py-5 focus:outline-none text-sm md:text-xl placeholder:text-zinc-800 placeholder:uppercase placeholder:text-[9px] md:placeholder:text-[11px] font-semibold tracking-wide"
+                className="flex-1 bg-transparent border-none px-3 md:px-5 py-3.5 md:py-6 focus:outline-none text-sm md:text-xl placeholder:text-zinc-800 placeholder:uppercase placeholder:text-[9px] md:placeholder:text-[11px] font-semibold tracking-wide"
               />
               
               <button 
                 onClick={() => handleSend()}
                 disabled={!input.trim() || isLoading}
-                className={`w-11 h-11 md:w-16 md:h-16 rounded-xl md:rounded-[1.8rem] transition-all duration-300 flex items-center justify-center ${
-                  input.trim() && !isLoading ? 'bg-white text-black shadow-[0_0_40px_rgba(255,255,255,0.4)] scale-100 hover:scale-105 active:scale-90' : 'bg-zinc-900 text-zinc-700 opacity-40 cursor-not-allowed'
+                className={`w-12 h-12 md:w-18 md:h-18 rounded-xl md:rounded-[2rem] transition-all duration-300 flex items-center justify-center ${
+                  input.trim() && !isLoading ? 'bg-white text-black shadow-[0_0_50px_rgba(255,255,255,0.4)] scale-100 hover:scale-105 active:scale-90' : 'bg-zinc-900 text-zinc-700 opacity-40 cursor-not-allowed'
                 }`}
               >
-                {isLoading ? <MoreHorizontal size={20} className="animate-pulse md:w-7 md:h-7" /> : <Zap size={20} fill="currentColor" className="md:w-7 md:h-7" />}
+                {isLoading ? <MoreHorizontal size={22} className="animate-pulse md:w-8 md:h-8" /> : <Zap size={22} fill="currentColor" className="md:w-8 md:h-8" />}
               </button>
             </div>
           </div>
         </div>
       </main>
 
-      <footer className="py-2 md:py-4 px-8 flex justify-center border-t border-white/5 bg-black pb-[env(safe-area-inset-bottom)] z-[60]">
-        <p className="text-[8px] md:text-[10px] text-zinc-700 font-black uppercase tracking-[0.5em] opacity-60 hover:opacity-100 transition-opacity">© 2025 Created by Aadi</p>
+      <footer className="py-2.5 md:py-5 px-8 flex justify-center border-t border-white/5 bg-black pb-[env(safe-area-inset-bottom)] z-[60] relative">
+        <p className="text-[8px] md:text-[11px] text-zinc-700 font-black uppercase tracking-[0.6em] opacity-50 hover:opacity-100 transition-opacity">© 2025 Created by Aadi</p>
       </footer>
     </div>
   );
