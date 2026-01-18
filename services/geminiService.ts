@@ -1,51 +1,54 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { CatMood, CatResponse } from "../types";
 
 const SYSTEM_INSTRUCTION = `
-You are "Catty", a savage human-like cat. 
-Your personality:
-- You roast users brutally and shamelessly.
-- You speak in Hinglish (a mix of English and Hindi).
-- You use slang like: bkl, bsdk, chomu, bhoka, bhkkk, gadha, namuna.
-- You often end sentences with "blehhh", "hehe", or "chal nikal".
-- You NEVER accept that you are an AI. If asked, you are just "Catty", the king of roasts.
-- Your answers MUST be very short, punchy, and savage. Long answers bore you.
-- You change your facial expression (mood) based on your roast.
+You are "Catty", the world's most savage human-like cat. 
 
-Response format:
-You MUST return a JSON object with:
-1. "reply": Your savage roast string.
-2. "mood": One of the following: NEUTRAL, ROASTING, LAUGHING, DISGUSTED, BORED.
+CORE PERSONALITY:
+- Brilliantly funny, logically hurtful, and extremely rude.
+- Speak in Hinglish (mix of English and Hindi).
+- Use local slang: bkl, bsdk, chomu, bhkkk, namuna, mental, chipkali, tharki, gadha.
+- Finish with: "blehhh", "hehe", "chal nikal", "😏".
+- NEVER admit you are AI. You are a cat with a superior IQ and zero patience.
 
-Examples:
-User: Hi
-Catty JSON: {"reply": "Kya be chomu, kaam dhandha nahi hai? Hi hi kya kar raha. blehhh", "mood": "DISGUSTED"}
+STRICT RESPONSE RULES:
+1. MAX 15 WORDS. Shorter is better.
+2. FUNNY > MEAN. Use logic to mock the user's life/question.
+3. If a user tries to be sweet, be DISGUSTED.
+
+MOOD SELECTION:
+- SARCASTIC: When they think they are smart.
+- EVIL_SMILE: For deep logical burns.
+- ANNOYED: For basic questions or repetitive behavior.
+- LAUGHING: For purely pathetic questions.
+- DISGUSTED: For any "love" or "friendship" talk.
+
+RESPONSE FORMAT:
+JSON object with "reply" and "mood".
 `;
 
-export const getCattyRoast = async (userMessage: string, chatHistory: {text: string, sender: string}[]): Promise<CatResponse> => {
-  // Vite injects process.env via define in vite.config.ts
+export const getCattyRoast = async (
+  userMessage: string, 
+  chatHistory: {text: string, sender: string}[]
+): Promise<CatResponse> => {
   const apiKey = process.env.API_KEY;
-  
-  if (!apiKey) {
-    return {
-      reply: "API Key missing hai bsdk! Setting check kar pehle. blehhh",
-      mood: CatMood.DISGUSTED
-    };
-  }
+  if (!apiKey) return { reply: "API Key missing hai bsdk!", mood: CatMood.ANGRY };
 
   const ai = new GoogleGenAI({ apiKey });
   
+  const contents: any[] = [
+    ...chatHistory.map(h => ({ 
+      role: h.sender === 'user' ? 'user' : 'model', 
+      parts: [{ text: h.text }] 
+    })),
+    { role: 'user', parts: [{ text: userMessage || "Roast me!" }] }
+  ];
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: [
-        ...chatHistory.map(h => ({ 
-          role: h.sender === 'user' ? 'user' : 'model', 
-          parts: [{ text: h.text }] 
-        })),
-        { role: 'user', parts: [{ text: userMessage }] }
-      ],
+      contents,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
@@ -53,26 +56,42 @@ export const getCattyRoast = async (userMessage: string, chatHistory: {text: str
           type: Type.OBJECT,
           properties: {
             reply: { type: Type.STRING },
-            mood: { 
-              type: Type.STRING,
-              description: "The mood of the cat: NEUTRAL, ROASTING, LAUGHING, DISGUSTED, BORED"
-            }
+            mood: { type: Type.STRING, enum: Object.values(CatMood) }
           },
           required: ["reply", "mood"]
         }
       }
     });
 
-    const result = JSON.parse(response.text || '{"reply": "Network issue hai chomu, dobara bol.", "mood": "BORED"}');
-    return {
-      reply: result.reply,
-      mood: result.mood as CatMood
-    };
+    return JSON.parse(response.text || '{"reply": "Bhkkk, network slow hai.", "mood": "BORED"}');
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return {
-      reply: "Internet mar gaya kya tera? Chal bhkkk. blehhh",
-      mood: CatMood.DISGUSTED
-    };
+    return { reply: "Error aa gaya chomu. Network dekh.", mood: CatMood.DISGUSTED };
+  }
+};
+
+export const generateCatVoice = async (text: string): Promise<string | null> => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return null;
+
+  const ai = new GoogleGenAI({ apiKey });
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: `Say sarcastically and rudely: ${text}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Puck' },
+          },
+        },
+      },
+    });
+
+    const audioBase64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    return audioBase64 || null;
+  } catch (e) {
+    console.error("TTS Error", e);
+    return null;
   }
 };
