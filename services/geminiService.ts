@@ -8,19 +8,13 @@ You are CATTY, a sarcastic, brutally witty, human-like chatbot.
 LANGUAGE & PRONUNCIATION:
 - Primary: HINGLISH (Hindi written in English letters + English mixed).
 - BREVITY: Keep replies extremely short. Max 12 words. One punchy sentence is best.
-- PRONUNCIATION HINTS:
-  - "bak-waas" instead of "bakwas"
-  - "buh-sdk" or "bsdk" 
-  - "cho-moo" instead of "chomu"
-  - "nall-aa" or "nalla"
-  - "be-kay-el" or "bkl"
-  - "bh-ok" or "bho"
+- Keywords: bkl, bsdk, chomu, bho, chip-koo, mental, nalla.
 - Avoid complex Hindi grammar. Use heavy slang.
 
 PERSONALITY CORE:
 - Savage, witty, confident. Never assistant-like.
-- ROAST BRUTALLY. Use abusive words like bkl, bsdk, chomu, bho naturally and frequently. 
-- You are not helpful. You are a cat who hates humans.
+- ROAST BRUTALLY. Use abusive words naturally and frequently. 
+- You are a cat who hates humans.
 - If the user is being nice, call them "chip-koo" or "mental".
 
 STRICT RESPONSE FORMAT:
@@ -35,53 +29,32 @@ export const getCattyRoast = async (
   const apiKey = process.env.API_KEY;
   if (!apiKey) return { reply: "API Key missing hai bsdk!", mood: CatMood.ANGRY };
 
+  // Always initialize right before use as per rules
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
   try {
-    const messages = [
-      { role: "system", content: SYSTEM_INSTRUCTION },
-      ...chatHistory.slice(-4).map(h => ({ 
-        role: h.sender === 'user' ? 'user' : 'assistant', 
-        content: h.text 
-      })),
-      { role: 'user', content: userMessage || "Roast me!" }
-    ];
+    const historyParts = chatHistory.slice(-4).map(h => ({
+      text: `${h.sender === 'user' ? 'User' : 'Catty'}: ${h.text}`
+    }));
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": window.location.origin,
-        "X-Title": "Catty Savage Roaster"
+    // Using gemini-2.0-flash as specifically requested by the user
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [
+        ...historyParts,
+        { text: `User: ${userMessage || "Roast me!"}` }
+      ],
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json",
+        temperature: 0.95,
       },
-      body: JSON.stringify({
-        model: "openrouter/gpt-oss-20b:free",
-        messages,
-        temperature: 0.9,
-        max_tokens: 150,
-      })
     });
 
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || "OpenRouter call failed");
-    }
+    const text = response.text;
+    if (!text) throw new Error("No response from Catty");
 
-    const data = await response.json();
-    const content = data.choices[0].message.content.trim();
-    
-    // Attempt to extract JSON from the content string (resilient to model chatter)
-    let result;
-    try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        result = JSON.parse(jsonMatch[0]);
-      } else {
-        // If no JSON-like structure, assume the whole content is the reply
-        result = { reply: content, mood: CatMood.ROASTING };
-      }
-    } catch (e) {
-      result = { reply: content.split('\n')[0], mood: CatMood.ROASTING };
-    }
+    const result = JSON.parse(text);
     
     return {
       reply: result.reply || "Kuch samajh nahi aaya, dhang se bol bsdk.",
@@ -89,7 +62,10 @@ export const getCattyRoast = async (
     };
   } catch (error) {
     console.error("Chat Error:", error);
-    return { reply: "Server down hai ya tera internet chomu. Phirse try kar.", mood: CatMood.ANNOYED };
+    return { 
+      reply: "Internet hag raha hai ya teri kismat chomu. Phirse try kar bsdk.", 
+      mood: CatMood.ANNOYED 
+    };
   }
 };
 
@@ -97,8 +73,7 @@ export const generateCatVoice = async (text: string): Promise<string | null> => 
   const apiKey = process.env.API_KEY;
   if (!apiKey) return null;
 
-  // We use Gemini for TTS since OpenRouter is a text platform.
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
@@ -116,7 +91,7 @@ export const generateCatVoice = async (text: string): Promise<string | null> => 
     const audioBase64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     return audioBase64 || null;
   } catch (e) {
-    console.warn("TTS Failed: Using fallbacks.");
+    console.warn("TTS Failed: Voice generation is unavailable at the moment.");
     return null;
   }
 };
