@@ -80,13 +80,13 @@ function App() {
   
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
-  const [lastPokeTime, setLastPokeTime] = useState(0);
   const [pendingInput, setPendingInput] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const recognitionRef = useRef<any>(null);
+  const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (currentMood !== prevMood) {
@@ -99,6 +99,26 @@ function App() {
     }
   }, [currentMood, prevMood]);
 
+  // Enhanced Idle Logic
+  useEffect(() => {
+    if (isLoading || isListening) {
+      if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+      return;
+    }
+
+    const setRandomIdleMood = () => {
+      const idleMoods = [CatMood.NEUTRAL, CatMood.BORED, CatMood.SLEEPY, CatMood.CURIOUS, CatMood.SILLY];
+      const randomMood = idleMoods[Math.floor(Math.random() * idleMoods.length)];
+      setCurrentMood(randomMood);
+      
+      const nextTime = 5000 + Math.random() * 10000;
+      idleTimeoutRef.current = setTimeout(setRandomIdleMood, nextTime);
+    };
+
+    idleTimeoutRef.current = setTimeout(setRandomIdleMood, 8000);
+    return () => { if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current); };
+  }, [isLoading, isListening]);
+
   const triggerHaptic = (type: 'light' | 'heavy' | 'double') => {
     if (!window.navigator.vibrate) return;
     if (type === 'light') window.navigator.vibrate(30);
@@ -106,9 +126,19 @@ function App() {
     else if (type === 'double') window.navigator.vibrate([30, 30, 30]);
   };
 
-  useEffect(() => {
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
+    if (!SpeechRecognition) {
+      alert("Browser speech feature supporting nahi hai bsdk.");
+      return;
+    }
+
+    if (!recognitionRef.current) {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.lang = 'hi-IN';
@@ -118,16 +148,20 @@ function App() {
         setIsListening(false);
         triggerHaptic('light');
       };
-      recognitionRef.current.onerror = () => setIsListening(false);
+      recognitionRef.current.onerror = (e: any) => {
+        console.error("Speech error", e);
+        setIsListening(false);
+        if (e.error === 'not-allowed') alert("Mic permission de bsdk, warna type kar.");
+      };
       recognitionRef.current.onend = () => setIsListening(false);
     }
-  }, []);
 
-  const toggleListening = () => {
-    if (isListening) recognitionRef.current?.stop();
-    else {
-      triggerHaptic('light');
-      try { recognitionRef.current?.start(); setIsListening(true); } catch (e) { console.error("Speech error", e); }
+    triggerHaptic('light');
+    try { 
+      recognitionRef.current.start(); 
+      setIsListening(true); 
+    } catch (e) { 
+      console.error("Speech start error", e); 
     }
   };
 
@@ -223,9 +257,6 @@ function App() {
 
   const pokeCat = () => {
     triggerHaptic('double');
-    const now = Date.now();
-    setLastPokeTime(now);
-
     const pokes = ["Hath mat laga bsdk! 😏", "Chhu mat nalla, personal space bhi koi cheez hoti hai.", "Keep touching, it clearly makes you feel powerful. Pathetic."];
     const reply = pokes[Math.floor(Math.random() * pokes.length)];
     setCurrentMood(CatMood.ANGRY);
@@ -248,7 +279,7 @@ function App() {
   return (
     <div className="flex flex-col h-[100dvh] bg-black text-white overflow-hidden relative selection:bg-white selection:text-black">
       <div className={`absolute inset-0 bg-gradient-to-b ${MOOD_GRADIENTS[prevMood]} z-0`} />
-      <div className={`absolute inset-0 bg-gradient-to-b ${MOOD_GRADIENTS[currentMood]} z-1 transition-opacity duration-700 ease-in-out ${isTransitioning ? 'opacity-100' : 'opacity-100'}`} />
+      <div className={`absolute inset-0 bg-gradient-to-b ${MOOD_GRADIENTS[currentMood]} z-1 transition-opacity duration-700 ease-in-out`} />
 
       <header className="flex items-center justify-between px-5 py-3 border-b border-white/5 bg-black/60 backdrop-blur-3xl z-50 pt-[env(safe-area-inset-top)] relative">
         <div className="flex items-center gap-2.5">

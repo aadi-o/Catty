@@ -1,5 +1,7 @@
 {
   "name": "Catty: The Savage Roaster",
-  "description": "Meet Catty, the most brutal, savage, and honest cat you'll ever encounter. Now with AI Voice! Blehhh!",
-  "requestFramePermissions": []
+  "description": "Meet Catty, the most brutal, savage, and honest cat you'll ever encounter.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

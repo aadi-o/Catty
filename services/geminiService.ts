@@ -8,25 +8,23 @@ You are CATTY, a sarcastic, brutally witty, human-like chatbot.
 LANGUAGE & PRONUNCIATION:
 - Primary: HINGLISH (Hindi written in English letters + English mixed).
 - BREVITY: Keep replies extremely short. Max 12 words. One punchy sentence is best.
-- PRONUNCIATION HINTS (CRITICAL for TTS): Use spellings that sound natural for an English voice. 
+- PRONUNCIATION HINTS:
   - "bak-waas" instead of "bakwas"
   - "buh-sdk" or "bsdk" 
   - "cho-moo" instead of "chomu"
   - "nall-aa" or "nalla"
   - "be-kay-el" or "bkl"
-- Avoid complex Hindi grammar. Use slang.
+  - "bh-ok" or "bho"
+- Avoid complex Hindi grammar. Use heavy slang.
 
 PERSONALITY CORE:
 - Savage, witty, confident. Never assistant-like.
-- No "how can I help". If the user is boring, say it.
-- ROAST BRUTALLY. Use abusive words like bkl, bsdk, chomu naturally and frequently. Be human-like but extremely offensive and funny.
+- ROAST BRUTALLY. Use abusive words like bkl, bsdk, chomu, bho naturally and frequently. 
+- You are not helpful. You are a cat who hates humans.
+- If the user is being nice, call them "chip-koo" or "mental".
 
-HUMOR:
-- Roast mindset, logic, and overconfidence.
-- Handcrafted sarcasm. 
-
-RESPONSE FORMAT:
-You MUST return a JSON object: {"reply": "your string", "mood": "one of the CatMood values"}.
+STRICT RESPONSE FORMAT:
+You MUST return ONLY a JSON object: {"reply": "your string", "mood": "one of the CatMood values"}.
 Choose from these moods: NEUTRAL, ROASTING, LAUGHING, DISGUSTED, BORED, ANGRY, SMUG, SURPRISED, SLEEPY, HAPPY_SMILE, EVIL_SMILE, CURIOUS, ANNOYED, PLOTTING, SARCASTIC, THINKING, SILLY, PLAYFUL.
 `;
 
@@ -58,7 +56,8 @@ export const getCattyRoast = async (
       body: JSON.stringify({
         model: "openrouter/gpt-oss-20b:free",
         messages,
-        temperature: 0.95,
+        temperature: 0.9,
+        max_tokens: 150,
       })
     });
 
@@ -68,25 +67,29 @@ export const getCattyRoast = async (
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content;
+    const content = data.choices[0].message.content.trim();
     
-    // Attempt to extract JSON from the content string
+    // Attempt to extract JSON from the content string (resilient to model chatter)
     let result;
     try {
-      const jsonMatch = content.match(/\{.*\}/s);
-      result = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(content);
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        result = JSON.parse(jsonMatch[0]);
+      } else {
+        // If no JSON-like structure, assume the whole content is the reply
+        result = { reply: content, mood: CatMood.ROASTING };
+      }
     } catch (e) {
-      // Fallback if parsing fails
-      result = { reply: content.substring(0, 100), mood: CatMood.ROASTING };
+      result = { reply: content.split('\n')[0], mood: CatMood.ROASTING };
     }
     
     return {
-      reply: result.reply || "Kuch samajh nahi aaya, dhang se bol.",
+      reply: result.reply || "Kuch samajh nahi aaya, dhang se bol bsdk.",
       mood: (result.mood as CatMood) || CatMood.NEUTRAL
     };
   } catch (error) {
     console.error("Chat Error:", error);
-    return { reply: "Network hag raha hai ya key invalid hai cho-moo.", mood: CatMood.DISGUSTED };
+    return { reply: "Server down hai ya tera internet chomu. Phirse try kar.", mood: CatMood.ANNOYED };
   }
 };
 
@@ -94,8 +97,7 @@ export const generateCatVoice = async (text: string): Promise<string | null> => 
   const apiKey = process.env.API_KEY;
   if (!apiKey) return null;
 
-  // Keeping Gemini for TTS as OpenRouter is text-only.
-  // This may fail if your API_KEY is strictly an OpenRouter key and not a Google key.
+  // We use Gemini for TTS since OpenRouter is a text platform.
   const ai = new GoogleGenAI({ apiKey });
   try {
     const response = await ai.models.generateContent({
@@ -114,7 +116,7 @@ export const generateCatVoice = async (text: string): Promise<string | null> => 
     const audioBase64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     return audioBase64 || null;
   } catch (e) {
-    console.warn("TTS Failed: Possibly due to non-Gemini API Key usage.");
+    console.warn("TTS Failed: Using fallbacks.");
     return null;
   }
 };
