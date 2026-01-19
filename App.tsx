@@ -66,7 +66,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Aa gaya cho-moo? Bol kya bak-waas karni hai, bored mat kar.",
+      text: "Cute lag rahi hoon? Nazar mat laga bsdk, kaam bol.",
       sender: 'cat',
       mood: CatMood.NEUTRAL,
       timestamp: Date.now()
