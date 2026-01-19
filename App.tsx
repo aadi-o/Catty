@@ -30,6 +30,7 @@ const MOOD_GRADIENTS: Record<CatMood, string> = {
   [CatMood.SARCASTIC]: 'from-purple-900/40 via-black to-black',
   [CatMood.THINKING]: 'from-blue-950/40 via-black to-black',
   [CatMood.SILLY]: 'from-pink-950/30 via-black to-black',
+  [CatMood.PLAYFUL]: 'from-yellow-950/40 via-black to-black',
 };
 
 const PawLoading = () => (
@@ -65,21 +66,22 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Bol cho-moo, kya bak-waas karni hai?",
+      text: "Aa gaya cho-moo? Bol kya bak-waas karni hai, bored mat kar.",
       sender: 'cat',
-      mood: CatMood.BORED,
+      mood: CatMood.NEUTRAL,
       timestamp: Date.now()
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentMood, setCurrentMood] = useState<CatMood>(CatMood.BORED);
-  const [prevMood, setPrevMood] = useState<CatMood>(CatMood.BORED);
+  const [currentMood, setCurrentMood] = useState<CatMood>(CatMood.NEUTRAL);
+  const [prevMood, setPrevMood] = useState<CatMood>(CatMood.NEUTRAL);
   const [isTransitioning, setIsTransitioning] = useState(false);
   
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [lastPokeTime, setLastPokeTime] = useState(0);
+  const [pendingInput, setPendingInput] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -130,7 +132,6 @@ function App() {
   };
 
   const playAudio = async (base64Data: string) => {
-    // Latency & Spam Fix: Stop current playing audio
     if (currentAudioSourceRef.current) {
       try {
         currentAudioSourceRef.current.stop();
@@ -186,10 +187,10 @@ function App() {
 
     triggerHaptic('light');
     setMessages(prev => [...prev, { id: Date.now().toString(), text: messageText, sender: 'user', timestamp: Date.now() }]);
+    setPendingInput(messageText);
     setInput('');
     
     setIsLoading(true);
-    // Faster visual feedback for mobile
     const lowerText = messageText.toLowerCase();
     setCurrentMood(lowerText.includes('cute') ? CatMood.DISGUSTED : CatMood.THINKING);
 
@@ -210,7 +211,10 @@ function App() {
       setCurrentMood(roast.mood);
     } catch (e) {
       setCurrentMood(CatMood.ANNOYED);
-    } finally { setIsLoading(false); }
+    } finally { 
+      setIsLoading(false); 
+      setPendingInput(''); 
+    }
   };
 
   useEffect(() => {
@@ -235,6 +239,11 @@ function App() {
     setMessages([{ id: Date.now().toString(), text: "Memory clean kar di? Personality bhi clean kar leta cho-moo.", sender: 'cat', mood: CatMood.LAUGHING, timestamp: Date.now() }]);
     setCurrentMood(CatMood.LAUGHING);
   };
+
+  const lastCatMsg = useMemo(() => {
+    const catMsgs = messages.filter(m => m.sender === 'cat');
+    return catMsgs[catMsgs.length - 1]?.text || '';
+  }, [messages]);
 
   return (
     <div className="flex flex-col h-[100dvh] bg-black text-white overflow-hidden relative selection:bg-white selection:text-black">
@@ -267,7 +276,11 @@ function App() {
 
         <div className="h-[28dvh] flex flex-col items-center justify-center p-4">
           <div className="w-full h-full max-w-[170px] cursor-pointer active:scale-90 transition-transform duration-300" onClick={pokeCat}>
-            <CatAvatar mood={currentMood} />
+            <CatAvatar 
+              mood={currentMood} 
+              lastReply={lastCatMsg} 
+              userInput={pendingInput}
+            />
           </div>
         </div>
 

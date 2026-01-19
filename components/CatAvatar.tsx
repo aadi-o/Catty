@@ -5,19 +5,18 @@ import { CatMood } from '../types';
 interface CatAvatarProps {
   mood: CatMood;
   lastReply?: string;
+  userInput?: string;
 }
 
-const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
+const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '', userInput = '' }) => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [blinkTrigger, setBlinkTrigger] = useState(false);
   const [moodKey, setMoodKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Trigger a refined "pop" on mood change
   useEffect(() => {
     setMoodKey(prev => prev + 1);
-    
-    if ([CatMood.NEUTRAL, CatMood.SURPRISED, CatMood.CURIOUS].includes(mood)) {
+    if ([CatMood.NEUTRAL, CatMood.SURPRISED, CatMood.CURIOUS, CatMood.HAPPY_SMILE, CatMood.PLAYFUL].includes(mood)) {
       setBlinkTrigger(true);
       const timer = setTimeout(() => setBlinkTrigger(false), 120);
       return () => clearTimeout(timer);
@@ -27,13 +26,10 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
   const animationIntensity = useMemo(() => {
     let score = 1.0;
     if (lastReply.length > 40) score += 0.5;
-    if (lastReply.length > 80) score += 0.5;
     const abusiveKeywords = ['bkl', 'bsdk', 'chomu', 'bhkkk', 'namuna', 'mental', 'nalla', 'gaandu'];
     const lowerReply = lastReply.toLowerCase();
-    if (abusiveKeywords.some(word => lowerReply.includes(word))) {
-      score += 1.5;
-    }
-    return Math.min(score, 4.0);
+    if (abusiveKeywords.some(word => lowerReply.includes(word))) score += 2.0;
+    return Math.min(score, 5.0);
   }, [lastReply, mood]);
 
   useEffect(() => {
@@ -45,24 +41,20 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
         const dx = e.clientX - catCenterX;
         const dy = e.clientY - catCenterY;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const maxOffset = mood === CatMood.SILLY ? 22 : 18; 
+        const maxOffset = mood === CatMood.SILLY || mood === CatMood.PLAYFUL ? 14 : 10; 
         const angle = Math.atan2(dy, dx);
-        const sensitivity = 25; 
+        const sensitivity = 45; 
         const moveX = Math.cos(angle) * Math.min(maxOffset, dist / sensitivity);
         const moveY = Math.sin(angle) * Math.min(maxOffset, dist / sensitivity);
         setMousePos({ x: moveX, y: moveY });
       } else if (mood === CatMood.THINKING) {
-        // Subtle ambient drift while thinking
         const time = Date.now();
-        setMousePos({ 
-          x: Math.sin(time / 800) * 3, 
-          y: Math.cos(time / 950) * 2 
-        });
+        setMousePos({ x: Math.sin(time / 700) * 1.5, y: Math.cos(time / 800) * 1.2 });
       }
     };
 
     const blinkInterval = setInterval(() => {
-      if (Math.random() > 0.7 && mood !== CatMood.SLEEPY && mood !== CatMood.THINKING) {
+      if (Math.random() > 0.75 && mood !== CatMood.SLEEPY && mood !== CatMood.THINKING) {
         setBlinkTrigger(true);
         setTimeout(() => setBlinkTrigger(false), 120);
       }
@@ -76,101 +68,162 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
   }, [mood]);
 
   const styles = useMemo(() => {
+    const hasQuestion = userInput.includes('?');
+    const hasAggression = ['bkl', 'bsdk', 'chomu', 'gaandu', 'nalla'].some(w => userInput.toLowerCase().includes(w));
+
     switch (mood) {
       case CatMood.THINKING:
         return {
-          eyes: { left: "M 38 46 A 2.5 2.5 0 1 1 37.9 46", right: "M 62 46 A 2.5 2.5 0 1 1 61.9 46", t: 3 },
-          mouth: "M 46 72 Q 50 70 54 72",
-          glow: "bg-blue-600/30",
+          eyes: { left: "M 38 41 A 2.5 2.5 0 1 1 37.9 41", right: "M 62 41 A 2.5 2.5 0 1 1 61.9 41", t: 2.2 },
+          mouth: "M 48 62 Q 50 60 52 62",
+          glow: hasAggression ? "bg-orange-600/30" : "bg-blue-600/30",
           eyeClass: "animate-pulse-subtle",
           isThinking: true,
           breatheType: 'animate-breathe-gentle',
-          eyebrows: { left: "M 30 38 Q 38 35 44 38", right: "M 56 38 Q 62 35 70 38", t: 1.5, class: "animate-eyebrow-raise" },
-          headClass: "animate-head-bob-thinking"
+          eyebrows: { 
+            left: hasAggression ? "M 30 35 L 45 42" : "M 32 32 Q 38 29 44 32", 
+            right: hasAggression ? "M 70 35 L 55 42" : "M 56 32 Q 62 29 68 32", 
+            t: 1.2, 
+            class: "animate-eyebrow-raise" 
+          },
+          headClass: hasQuestion ? "animate-curious-tilt" : "animate-head-bob-thinking",
+        };
+      case CatMood.PLAYFUL:
+        return {
+          eyes: { left: "M 30 40 A 6.5 6.5 0 1 1 29.9 40", right: "M 70 40 A 6.5 6.5 0 1 1 69.9 40", t: 3 },
+          mouth: "M 38 66 Q 50 82 62 66 Z",
+          glow: "bg-yellow-300/40",
+          showBlush: true,
+          breatheType: 'animate-breathe-heavy',
+          bodyClass: "animate-playful-bounce",
+          tailClass: "animate-tail-cute",
+          earLClass: "animate-ear-l",
+          earRClass: "animate-ear-r",
+          eyebrows: { left: "M 28 32 Q 38 24 48 32", right: "M 52 32 Q 62 24 72 32", t: 1.8, class: "animate-bounce-subtle" }
         };
       case CatMood.SILLY:
         return {
-          eyes: { left: "M 32 45 A 5 5 0 1 1 31.9 45", right: "M 68 45 A 5 5 0 1 1 67.9 45", t: 3 },
-          mouth: "M 38 72 Q 50 85 62 72",
-          glow: "bg-pink-500/40",
+          eyes: { left: "M 33 42 A 3.5 3.5 0 1 1 32.9 42", right: "M 67 42 A 3.5 3.5 0 1 1 66.9 42", t: 2 },
+          mouth: "M 38 64 Q 50 78 62 64",
+          glow: "bg-pink-500/50",
           showTongue: true,
+          showBlush: true,
           breatheType: 'animate-breathe-heavy',
-          eyebrows: { left: "M 32 40 Q 40 35 48 40", right: "M 52 40 Q 60 35 68 40", t: 1, class: "" }
-        };
-      case CatMood.SLEEPY:
-        return {
-          eyes: { left: "M 32 46 Q 40 54 48 46", right: "M 52 46 Q 60 54 68 46", t: 1.6 },
-          mouth: "M 40 72 Q 50 96 60 72",
-          glow: "bg-blue-900/20",
-          mouthClass: "animate-yawn",
-          breatheType: 'animate-breathe-sleep',
-          eyebrows: { left: "M 32 44 Q 40 46 48 44", right: "M 52 44 Q 60 46 68 44", t: 0.8, class: "" }
+          eyebrows: { left: "M 30 35 Q 38 28 46 35", right: "M 54 35 Q 62 28 70 35", t: 1.5, class: "animate-wiggle" }
         };
       case CatMood.ANGRY:
         return {
-          eyes: { left: "M 30 40 L 48 50", right: "M 70 40 L 52 50", t: 6.5 },
-          mouth: "M 40 75 L 60 75",
-          glow: "bg-red-600/60",
+          eyes: { left: "M 30 36 L 48 45", right: "M 70 36 L 52 45", t: 6 },
+          mouth: "M 42 66 L 58 66",
+          glow: "bg-red-600/70",
+          showAngryMark: true,
           breatheType: 'animate-breathe-heavy',
-          eyebrows: { left: "M 28 35 L 48 45", right: "M 72 35 L 52 45", t: 3.5, class: "" }
+          eyebrows: { left: "M 28 29 L 48 40", right: "M 72 29 L 52 40", t: 4, class: "" }
+        };
+      case CatMood.EVIL_SMILE:
+      case CatMood.PLOTTING:
+        return {
+          eyes: { left: "M 32 42 Q 40 34 48 42", right: "M 52 42 Q 60 34 68 42", t: 4.5 },
+          mouth: "M 34 62 Q 50 82 66 62 L 62 60 Q 50 76 38 60 Z",
+          glow: "bg-purple-600/60",
+          breatheType: 'animate-breathe-heavy',
+          eyebrows: { left: "M 30 32 L 48 38", right: "M 70 32 L 52 38", t: 2.5, class: "" }
         };
       case CatMood.LAUGHING:
         return {
-          eyes: { left: "M 35 48 Q 40 42 45 48", right: "M 55 48 Q 60 42 65 48", t: 4 },
-          mouth: "M 35 65 Q 50 95 65 65",
-          glow: "bg-emerald-600/30",
+          eyes: { left: "M 35 44 Q 40 38 45 44", right: "M 55 44 Q 60 38 65 44", t: 3.5 },
+          mouth: "M 35 56 Q 50 84 65 56",
+          glow: "bg-emerald-600/40",
+          showBlush: true,
           breatheType: 'animate-breathe-heavy',
-          eyebrows: { left: "M 30 40 Q 40 32 48 40", right: "M 52 40 Q 60 32 70 40", t: 1.2, class: "" }
+          eyebrows: { left: "M 30 36 Q 40 28 48 36", right: "M 52 36 Q 60 28 70 36", t: 1.2, class: "animate-bounce-subtle" }
         };
       case CatMood.SURPRISED:
         return {
-          eyes: { left: "M 30 45 A 6.5 6.5 0 1 1 29.9 45", right: "M 70 45 A 6.5 6.5 0 1 1 69.9 45", t: 3.5 },
-          mouth: "M 46 75 A 4.5 4.5 0 1 1 45.9 75",
-          glow: "bg-yellow-500/30",
+          eyes: { left: "M 30 40 A 6.5 6.5 0 1 1 29.9 40", right: "M 70 40 A 6.5 6.5 0 1 1 69.9 40", t: 3 },
+          mouth: "M 50 72 A 4 4 0 1 1 49.9 72",
+          glow: "bg-yellow-400/40",
+          showSweatDrop: true,
           breatheType: 'animate-breathe-gentle',
-          eyebrows: { left: "M 25 32 Q 35 25 45 32", right: "M 55 32 Q 65 25 75 32", t: 2, class: "" }
+          eyebrows: { left: "M 25 28 Q 35 20 45 28", right: "M 55 28 Q 65 20 75 28", t: 1.8, class: "" }
         };
-      case CatMood.EVIL_SMILE:
+      case CatMood.HAPPY_SMILE:
         return {
-          eyes: { left: "M 32 46 Q 40 38 48 46", right: "M 52 46 Q 60 38 68 46", t: 5.5 },
-          mouth: "M 32 68 Q 50 90 68 68 L 62 66 Q 50 82 38 66 Z",
-          glow: "bg-red-900/80",
-          breatheType: 'animate-breathe-heavy',
-          eyebrows: { left: "M 30 38 L 48 42", right: "M 70 38 L 52 42", t: 2.5, class: "" }
+          eyes: { left: "M 32 42 Q 40 36 48 42", right: "M 52 42 Q 60 36 68 42", t: 4 },
+          mouth: "M 38 62 Q 50 78 62 62",
+          glow: "bg-green-400/30",
+          showBlush: true,
+          showHearts: true,
+          breatheType: 'animate-breathe-gentle',
+          eyebrows: { left: "M 32 34 Q 40 30 48 34", right: "M 52 34 Q 60 30 68 34", t: 1.2, class: "" }
+        };
+      case CatMood.SLEEPY:
+        return {
+          eyes: { left: "M 32 41 Q 40 47 48 41", right: "M 52 41 Q 60 47 68 41", t: 1.8 },
+          mouth: "M 40 64 Q 50 84 60 64",
+          glow: "bg-blue-900/30",
+          mouthClass: "animate-yawn",
+          breatheType: 'animate-breathe-sleep',
+          eyebrows: { left: "M 32 39 Q 40 41 48 39", right: "M 52 39 Q 60 41 68 39", t: 1, class: "" }
+        };
+      case CatMood.NEUTRAL:
+        return {
+          eyes: { left: "M 33 40 A 5.5 5.5 0 1 1 32.9 40", right: "M 67 40 A 5.5 5.5 0 1 1 66.9 40", t: 3 },
+          mouth: "M 41 60 Q 45 64 50 60 Q 55 64 59 60",
+          glow: "bg-rose-300/25",
+          showBlush: true,
+          breatheType: 'animate-breathe-gentle',
+          eyebrows: { left: "M 32 32 Q 40 30 48 32", right: "M 52 32 Q 60 30 68 32", t: 1, class: "" },
+          headClass: "animate-idle-purr",
+          bodyClass: "animate-weight-shift",
+          tailClass: "animate-tail-slow",
+          earLClass: "animate-ear-l-flick",
+          earRClass: "animate-ear-r-flick"
+        };
+      case CatMood.BORED:
+        return {
+          eyes: { left: "M 34 40 L 46 44", right: "M 66 40 L 54 44", t: 4 },
+          mouth: "M 44 70 Q 50 64 56 70",
+          glow: "bg-zinc-800/40",
+          breatheType: 'animate-breathe-gentle',
+          eyebrows: { left: "M 32 34 L 46 36", right: "M 68 34 L 54 36", t: 2, class: "" },
+          headClass: "animate-idle-purr",
+          bodyClass: "animate-weight-shift-heavy",
+          tailClass: "animate-tail-slow-heavy",
+          earLClass: "animate-ear-l-flick-slow",
+          earRClass: "animate-ear-r-flick-slow"
         };
       case CatMood.DISGUSTED:
-        return {
-          eyes: { left: "M 32 44 L 48 48", right: "M 68 44 L 52 48", t: 5 },
-          mouth: "M 44 76 Q 50 68 56 76",
-          glow: "bg-purple-900/50",
-          breatheType: 'animate-breathe-gentle',
-          eyebrows: { left: "M 34 38 Q 40 40 46 38", right: "M 54 38 Q 60 40 66 38", t: 2, class: "" }
-        };
-      case CatMood.SARCASTIC:
-        return {
-          eyes: { left: "M 34 43 Q 40 40 46 43", right: "M 54 43 Q 60 46 66 43", t: 4 },
-          mouth: "M 44 70 Q 55 75 66 65",
-          glow: "bg-indigo-600/40",
-          breatheType: 'animate-breathe-gentle',
-          eyebrows: { left: "M 30 35 Q 40 38 48 35", right: "M 52 35 Q 60 32 70 35", t: 1.5, class: "" }
-        };
+      case CatMood.ANNOYED:
       default:
         return {
-          eyes: { left: "M 35 45 Q 40 42 45 45", right: "M 55 45 Q 60 42 65 45", t: 4 },
-          mouth: "M 44 68 Q 50 70 56 68",
-          glow: "bg-zinc-800/10",
+          eyes: { left: "M 34 40 L 46 44", right: "M 66 40 L 54 44", t: 4 },
+          mouth: "M 44 70 Q 50 64 56 70",
+          glow: "bg-zinc-800/40",
           breatheType: 'animate-breathe-gentle',
-          eyebrows: { left: "M 32 40 Q 40 38 48 40", right: "M 52 40 Q 60 38 68 40", t: 1, class: "" }
+          eyebrows: { left: "M 32 34 L 46 36", right: "M 68 34 L 54 36", t: 2, class: "" },
+          headClass: "animate-idle-purr",
+          tailClass: "animate-tail-slow",
+          earLClass: "animate-ear-l-flick",
+          earRClass: "animate-ear-r-flick"
+        };
+      case CatMood.SARCASTIC:
+      case CatMood.SMUG:
+        return {
+          eyes: { left: "M 34 40 A 3 3 0 1 1 33.9 40", right: "M 66 40 A 3 3 0 1 1 65.9 40", t: 3.5 },
+          mouth: "M 44 64 Q 55 70 66 60",
+          glow: "bg-indigo-600/40",
+          showBlush: true,
+          breatheType: 'animate-breathe-gentle',
+          eyebrows: { left: "M 30 30 Q 38 32 46 30", right: "M 54 26 Q 62 23 70 26", t: 1.4, class: "" }
         };
     }
-  }, [mood]);
+  }, [mood, userInput]);
 
-  const breatheDuration = mood === CatMood.SLEEPY ? '7.5s' : (isIntense(mood) ? `${1.0 / animationIntensity}s` : `${3.0 / animationIntensity}s`);
-  const tailDuration = isIntense(mood) ? '0.45s' : '3.2s';
-  const earTwitchDuration = isIntense(mood) ? '1.8s' : '6.5s';
+  const breatheDuration = mood === CatMood.SLEEPY ? '8s' : (isIntense(mood) ? `${1.0 / animationIntensity}s` : `${4.5 / animationIntensity}s`);
 
   function isIntense(m: CatMood) {
-    return [CatMood.ROASTING, CatMood.LAUGHING, CatMood.ANGRY, CatMood.EVIL_SMILE, CatMood.SILLY].includes(m);
+    return [CatMood.ROASTING, CatMood.LAUGHING, CatMood.ANGRY, CatMood.EVIL_SMILE, CatMood.SILLY, CatMood.PLAYFUL].includes(m);
   }
 
   return (
@@ -180,149 +233,222 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
       className={`relative w-full h-full flex items-center justify-center overflow-visible ${mood === CatMood.SLEEPY ? 'animate-mood-stretch-slow' : 'animate-mood-stretch'}`}
     >
       <style>{`
-        @keyframes circular-spin {
-          0% { transform: rotate(0deg); stroke-dashoffset: 280; }
-          50% { stroke-dashoffset: 70; }
-          100% { transform: rotate(360deg); stroke-dashoffset: 280; }
+        @keyframes purr-sway {
+          0%, 100% { transform: translate(0, 0) rotate(-1.2deg); }
+          50% { transform: translate(1.2px, -1.8px) rotate(1.2deg); }
         }
-        @keyframes pulse-glow {
-          0%, 100% { transform: scale(0.92); opacity: 0.2; }
-          50% { transform: scale(1.18); opacity: 0.8; }
+        @keyframes weight-shift-fx {
+          0%, 100% { transform: translate(0, 0); }
+          25% { transform: translate(-1.8px, 0.6px); }
+          50% { transform: translate(0.6px, -1px); }
+          75% { transform: translate(1.8px, 0.3px); }
         }
-        @keyframes yawn {
-          0%, 100% { transform: scaleY(1); }
-          50% { transform: scaleY(2.4) translateY(6px); }
+        @keyframes weight-shift-heavy-fx {
+          0%, 100% { transform: translate(0, 0); }
+          40% { transform: translate(-2.5px, 1.2px); }
+          80% { transform: translate(2.5px, 0.8px); }
         }
-        @keyframes tongue-wiggle {
-          0%, 100% { transform: rotate(-10deg) scaleY(1); }
-          50% { transform: rotate(10deg) scaleY(1.35); }
-        }
-        @keyframes ear-twitch-left {
-          0%, 88%, 100% { transform: rotate(0deg); }
-          91% { transform: rotate(-15deg); }
-          94% { transform: rotate(7deg); }
-        }
-        @keyframes ear-twitch-right {
-          0%, 82%, 100% { transform: rotate(0deg); }
-          85% { transform: rotate(15deg); }
-          88% { transform: rotate(-7deg); }
-        }
-        @keyframes tail-swish {
-          0%, 100% { transform: rotate(-12deg); }
-          50% { transform: rotate(24deg); }
-        }
-        @keyframes mood-stretch {
-          0% { transform: scale(1); }
-          30% { transform: scale(1.15, 0.85); }
-          60% { transform: scale(0.9, 1.1); }
-          100% { transform: scale(1); }
-        }
-        @keyframes mood-stretch-slow {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.2, 0.8); }
-          100% { transform: scale(1); }
-        }
-        @keyframes breathe-heavy-fx {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.12); }
-        }
-        @keyframes breathe-gentle-fx {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
-        }
-        @keyframes breathe-sleep-fx {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.025); }
+        @keyframes playful-bounce-fx {
+          0%, 100% { transform: translateY(0) scale(1); }
+          25% { transform: translateY(-4px) scale(1.02, 0.98); }
+          75% { transform: translateY(2px) scale(0.98, 1.02); }
         }
         @keyframes head-bob-thinking {
-          0%, 100% { transform: translate(0, 0) rotate(0.2deg); }
-          15% { transform: translate(2px, -3px) rotate(1.8deg); }
-          35% { transform: translate(-2px, -1px) rotate(-1.2deg); }
-          55% { transform: translate(1.5px, -4px) rotate(2.2deg); }
-          75% { transform: translate(-1px, -2px) rotate(-0.5deg); }
-          90% { transform: translate(0.5px, -1px) rotate(0.8deg); }
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          50% { transform: translate(1px, -2px) rotate(1.5deg); }
         }
-        @keyframes eyebrow-raise-thinking {
-          0%, 100% { transform: translateY(0); }
-          15% { transform: translateY(-5px); }
-          25% { transform: translateY(-2px); }
-          45% { transform: translateY(-7px); }
-          65% { transform: translateY(-1px); }
-          80% { transform: translateY(-4px); }
+        @keyframes curious-tilt-fx {
+          0%, 100% { transform: translate(0, 0) rotate(15deg); }
+          50% { transform: translate(3px, -4px) rotate(18deg); }
         }
-        @keyframes pulse-subtle {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.7; transform: scale(0.95); }
+        @keyframes breathe-heavy-fx {
+          0%, 100% { transform: scale(1) translate(0, 0); }
+          50% { transform: scale(1.08, 1.04) translate(0, -1.5px); }
+        }
+        @keyframes breathe-gentle-fx {
+          0%, 100% { transform: scale(1) translate(0, 0); }
+          50% { transform: scale(1.03, 1.01) translate(0, -0.5px); }
+        }
+        @keyframes breathe-sleep-fx {
+          0%, 100% { transform: scale(1) translate(0, 0); }
+          50% { transform: scale(1.02, 1.005) translate(0, -0.2px); }
+        }
+        @keyframes chest-expand-fx {
+          0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.2; }
+          50% { transform: scale(1.15, 1.1) translate(0, -2px); opacity: 0.4; }
+        }
+        @keyframes ear-twitch-left-refined {
+          0%, 80%, 100% { transform: rotate(0deg); }
+          81% { transform: rotate(-8deg); }
+          82% { transform: rotate(2deg); }
+          83% { transform: rotate(-1deg); }
+          92% { transform: rotate(-12deg); }
+          94% { transform: rotate(4deg); }
+        }
+        @keyframes ear-twitch-right-refined {
+          0%, 85%, 100% { transform: rotate(0deg); }
+          86% { transform: rotate(8deg); }
+          87% { transform: rotate(-2deg); }
+          88% { transform: rotate(1deg); }
+          94% { transform: rotate(12deg); }
+          96% { transform: rotate(-4deg); }
+        }
+        @keyframes tail-swish-cute {
+          0%, 100% { transform: rotate(-10deg); }
+          45% { transform: rotate(18deg); }
+          50% { transform: rotate(14deg); }
+          55% { transform: rotate(16deg); }
+        }
+        @keyframes tail-swish-slow {
+          0%, 100% { transform: rotate(-6deg); }
+          50% { transform: rotate(10deg); }
+        }
+        @keyframes tail-swish-slow-heavy {
+          0%, 100% { transform: rotate(-4deg); }
+          50% { transform: rotate(6deg); }
+        }
+        @keyframes sweat-drip {
+          0% { transform: translateY(0) opacity(0); }
+          20% { opacity: 1; }
+          100% { transform: translateY(12px) opacity(0); }
+        }
+        @keyframes float-heart {
+          0% { transform: scale(0) translateY(0); opacity: 0; }
+          50% { opacity: 1; }
+          100% { transform: scale(1.2) translateY(-20px); opacity: 0; }
+        }
+        @keyframes angry-pulse {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.2); opacity: 1; }
         }
 
-        .animate-spin-loader { transform-origin: center; animation: circular-spin 2s linear infinite; }
-        .animate-pulse-glow { transform-origin: center; animation: pulse-glow 2s ease-in-out infinite; }
-        .animate-pulse-subtle { animation: pulse-subtle 1.8s ease-in-out infinite; }
-        .animate-breathe-heavy { transform-origin: center; animation: breathe-heavy-fx ${breatheDuration} ease-in-out infinite; }
-        .animate-breathe-gentle { transform-origin: center; animation: breathe-gentle-fx ${breatheDuration} ease-in-out infinite; }
-        .animate-breathe-sleep { transform-origin: center; animation: breathe-sleep-fx ${breatheDuration} ease-in-out infinite; }
-        .animate-yawn { transform-origin: 50% 72%; animation: yawn 3.8s ease-in-out infinite; }
-        .animate-tongue { transform-origin: 50% 75%; animation: tongue-wiggle 0.22s ease-in-out infinite; }
-        .animate-ear-l { transform-origin: 35px 40px; animation: ear-twitch-left ${earTwitchDuration} ease-in-out infinite; }
-        .animate-ear-r { transform-origin: 65px 40px; animation: ear-twitch-right ${earTwitchDuration} ease-in-out infinite; }
-        .animate-tail { transform-origin: 25px 80px; animation: tail-swish ${tailDuration} ease-in-out infinite; }
-        .animate-mood-stretch { animation: mood-stretch 0.6s cubic-bezier(0.34, 1.65, 0.64, 1) forwards; }
-        .animate-mood-stretch-slow { animation: mood-stretch-slow 1.6s cubic-bezier(0.4, 0, 0.5, 1) forwards; }
+        .animate-idle-purr { animation: purr-sway 5s ease-in-out infinite; transform-origin: bottom center; }
+        .animate-weight-shift { animation: weight-shift-fx 10s ease-in-out infinite; }
+        .animate-weight-shift-heavy { animation: weight-shift-heavy-fx 14s ease-in-out infinite; }
+        .animate-playful-bounce { animation: playful-bounce-fx 0.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite; }
+        .animate-head-bob-thinking { animation: head-bob-thinking 3s ease-in-out infinite; transform-origin: center center; }
+        .animate-curious-tilt { animation: curious-tilt-fx 3s ease-in-out infinite; transform-origin: center center; }
+        .animate-breathe-heavy { transform-origin: bottom center; animation: breathe-heavy-fx ${breatheDuration} ease-in-out infinite; }
+        .animate-breathe-gentle { transform-origin: bottom center; animation: breathe-gentle-fx ${breatheDuration} ease-in-out infinite; }
+        .animate-breathe-sleep { transform-origin: bottom center; animation: breathe-sleep-fx ${breatheDuration} ease-in-out infinite; }
+        .animate-chest-expand { transform-origin: center center; animation: chest-expand-fx ${breatheDuration} ease-in-out infinite; }
         
-        .animate-head-bob-thinking { animation: head-bob-thinking 4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite; transform-origin: center center; }
-        .animate-eyebrow-raise { animation: eyebrow-raise-thinking 3.2s ease-in-out infinite; }
+        .animate-ear-l { animation: ear-twitch-left-refined 6s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 30px 26px; }
+        .animate-ear-r { animation: ear-twitch-right-refined 6s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 70px 26px; }
+        .animate-ear-l-flick { animation: ear-twitch-left-refined 11s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 30px 26px; }
+        .animate-ear-r-flick { animation: ear-twitch-right-refined 13s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 70px 26px; }
+        .animate-ear-l-flick-slow { animation: ear-twitch-left-refined 16s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 30px 26px; }
+        .animate-ear-r-flick-slow { animation: ear-twitch-right-refined 19s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 70px 26px; }
 
-        .path-morph {
-          transition: d 0.55s cubic-bezier(0.4, 0, 0.2, 1), stroke-width 0.55s ease-in-out, opacity 0.55s ease-in-out, fill 0.55s ease-in-out;
-        }
-        .fade-in {
-          animation: fade-in-ring 0.7s cubic-bezier(0.2, 1, 0.2, 1) forwards;
-        }
-        @keyframes fade-in-ring {
-          from { opacity: 0; transform: scale(0.9); filter: blur(4px); }
-          to { opacity: 1; transform: scale(1); filter: blur(0); }
-        }
+        .animate-tail-cute { animation: tail-swish-cute 3.5s cubic-bezier(0.36, 0, 0.64, 1) infinite; transform-origin: 22px 84px; }
+        .animate-tail-slow { animation: tail-swish-slow 7s ease-in-out infinite; transform-origin: 22px 84px; }
+        .animate-tail-slow-heavy { animation: tail-swish-slow-heavy 9s ease-in-out infinite; transform-origin: 22px 84px; }
+        
+        .animate-sweat { animation: sweat-drip 1.5s linear infinite; }
+        .animate-heart { animation: float-heart 2s ease-out infinite; }
+        .animate-angry-mark { animation: angry-pulse 1s ease-in-out infinite; }
+        .animate-wiggle { animation: purr-sway 0.5s ease-in-out infinite; }
+
+        .transition-cat { transition: d 0.6s cubic-bezier(0.4, 0, 0.2, 1), fill 0.6s ease, stroke 0.6s ease, transform 0.4s ease; }
       `}</style>
 
-      <svg viewBox="0 0 100 100" className="w-[94%] h-[94%] overflow-visible drop-shadow-[0_0_80px_rgba(255,255,255,0.08)]">
-        <path d="M 25 75 Q 5 80 10 95 Q 20 100 25 85" fill="none" stroke="#080808" strokeWidth="6" strokeLinecap="round" className="animate-tail" />
+      <svg viewBox="0 0 100 100" className={`w-[96%] h-[96%] overflow-visible drop-shadow-[0_0_40px_rgba(255,255,255,0.08)] ${styles.bodyClass || ''}`}>
+        {/* Tail (Elastic Swish) */}
+        <path d="M 22 84 Q 5 80 5 95 Q 15 100 22 92" fill="none" stroke="#080808" strokeWidth="8" strokeLinecap="round" className={styles.tailClass || "animate-tail-cute"} />
         
         {styles.isThinking && (
-          <g className="fade-in">
-            <circle cx="50" cy="50" r="49" fill="none" stroke="rgba(59, 130, 246, 0.12)" strokeWidth="4.5" className="animate-pulse-glow" />
-            <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(59, 130, 246, 0.35)" strokeWidth="0.6" />
-            <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(59, 130, 246, 0.7)" strokeWidth="1.8" strokeDasharray="35 265" className="animate-spin-loader" />
+          <g className="opacity-25">
+            <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(59, 130, 246, 0.5)" strokeWidth="0.8" strokeDasharray="10 15" className="animate-spin-slow" />
           </g>
         )}
 
         <g className={`${styles.breatheType} ${styles.headClass || ''}`}>
-          <path d="M 15 35 L 35 10 L 45 40 Z" fill="#080808" className="animate-ear-l" />
-          <path d="M 85 35 L 65 10 L 55 40 Z" fill="#080808" className="animate-ear-r" />
-          <circle cx="50" cy="50" r="42" fill="#000" stroke="#151515" strokeWidth="2" />
+          {/* Cuter Pointy Ears (Snap & Settle Twitch) */}
+          <path d="M 22 36 L 30 16 Q 38 12 45 36 Z" fill="#080808" className={`${styles.earLClass || 'animate-ear-l'} transition-cat`} />
+          <path d="M 78 36 L 70 16 Q 62 12 55 36 Z" fill="#080808" className={`${styles.earRClass || 'animate-ear-r'} transition-cat`} />
           
-          <g transform={`translate(${mousePos.x}, ${mousePos.y})`} className="transition-transform duration-500 ease-out">
+          {/* Chibi Cat Silhouette */}
+          <path 
+            id="cat-body"
+            d="M 50 20 
+               C 65 20, 78 30, 78 46 
+               C 78 58, 72 65, 84 88 
+               C 86 94, 78 98, 50 98 
+               C 22 98, 14 94, 16 88 
+               C 28 65, 22 58, 22 46 
+               C 22 30, 35 20, 50 20 Z" 
+            fill="#000" 
+            stroke="#121212" 
+            strokeWidth="1.5" 
+            className="transition-cat"
+          />
+
+          {/* Breathing Chest Highlight (Expansion Effect) */}
+          <ellipse cx="50" cy="72" rx="12" ry="8" fill="rgba(255,255,255,0.08)" filter="blur(4px)" className="animate-chest-expand" />
+
+          {/* Emotional Decoratives */}
+          {styles.showAngryMark && (
+            <g transform="translate(75, 25)" className="animate-angry-mark">
+              <path d="M-4,-4 L4,4 M4,-4 L-4,4" stroke="#ff4444" strokeWidth="2.5" strokeLinecap="round" />
+            </g>
+          )}
+          {styles.showSweatDrop && (
+            <path d="M 20 35 Q 18 38 20 42 Q 22 38 20 35" fill="#3b82f6" className="animate-sweat" />
+          )}
+          {styles.showHearts && (
+            <>
+              <path d="M 15 25 Q 15 20 20 20 Q 25 20 25 25 Q 25 30 20 35 Q 15 30 15 25" fill="#f43f5e" className="animate-heart" style={{ animationDelay: '0s' }} />
+              <path d="M 85 20 Q 85 15 90 15 Q 95 15 95 20 Q 95 25 90 30 Q 85 25 85 20" fill="#f43f5e" className="animate-heart" style={{ animationDelay: '0.8s' }} />
+            </>
+          )}
+          
+          {/* Facial Elements */}
+          <g transform={`translate(${mousePos.x}, ${mousePos.y})`} className="transition-transform duration-700 ease-out">
+            {/* Blush */}
+            {styles.showBlush && (
+              <g className="opacity-40">
+                <circle cx="32" cy="52" r="5" fill="#f43f5e" filter="blur(3px)" />
+                <circle cx="68" cy="52" r="5" fill="#f43f5e" filter="blur(3px)" />
+              </g>
+            )}
+
             {/* Eyebrows */}
             {styles.eyebrows && (
               <g className={styles.eyebrows.class}>
-                <path d={styles.eyebrows.left} fill="none" stroke="#fff" strokeWidth={styles.eyebrows.t} strokeLinecap="round" className="path-morph opacity-60" />
-                <path d={styles.eyebrows.right} fill="none" stroke="#fff" strokeWidth={styles.eyebrows.t} strokeLinecap="round" className="path-morph opacity-60" />
+                <path d={styles.eyebrows.left} fill="none" stroke="#fff" strokeWidth={styles.eyebrows.t} strokeLinecap="round" className="opacity-40 transition-cat" />
+                <path d={styles.eyebrows.right} fill="none" stroke="#fff" strokeWidth={styles.eyebrows.t} strokeLinecap="round" className="opacity-40 transition-cat" />
               </g>
             )}
             
-            <g className={styles.eyeClass || ''} style={{ transform: blinkTrigger ? 'scaleY(0.04)' : 'scaleY(1)', transition: 'transform 0.12s', transformOrigin: 'center 45px' }}>
-               <path d={styles.eyes.left} fill="none" stroke="#fff" strokeWidth={styles.eyes.t} strokeLinecap="round" className="path-morph" />
-               <path d={styles.eyes.right} fill="none" stroke="#fff" strokeWidth={styles.eyes.t} strokeLinecap="round" className="path-morph" />
+            {/* Eyes */}
+            <g style={{ transform: blinkTrigger ? 'scaleY(0.05)' : 'scaleY(1)', transition: 'transform 0.1s', transformOrigin: 'center 40px' }}>
+               <path d={styles.eyes.left} fill="none" stroke="#fff" strokeWidth={styles.eyes.t} strokeLinecap="round" className="transition-cat" />
+               <path d={styles.eyes.right} fill="none" stroke="#fff" strokeWidth={styles.eyes.t} strokeLinecap="round" className="transition-cat" />
+               {!styles.isThinking && !blinkTrigger && (
+                 <>
+                   <circle cx="36" cy="37" r="2.2" fill="#fff" opacity="0.85" />
+                   <circle cx="34" cy="42" r="1" fill="#fff" opacity="0.4" />
+                   <circle cx="64" cy="37" r="2.2" fill="#fff" opacity="0.85" />
+                   <circle cx="66" cy="42" r="1" fill="#fff" opacity="0.4" />
+                 </>
+               )}
             </g>
             
-            <path d="M 48 58 L 52 58 L 50 61 Z" fill="#fff" opacity="0.95" />
+            {/* Small Nose */}
+            <path d="M 48 51 L 52 51 L 50 54 Z" fill="#fff" opacity="0.95" />
+            
+            {/* Tongue */}
             {styles.showTongue && (
-               <path d="M 46 76 Q 50 86 54 76" fill="#f43f5e" className="animate-tongue" />
+               <path d="M 47 68 Q 50 78 53 68" fill="#f43f5e" className="animate-pulse" style={{ animationDuration: '0.3s' }} />
             )}
-            <path d={styles.mouth} fill={mood === CatMood.EVIL_SMILE ? "#fff" : "none"} stroke="#fff" strokeWidth="2.6" strokeLinecap="round" className={`path-morph ${styles.mouthClass || ''}`} />
+            
+            {/* Mouth */}
+            <path d={styles.mouth} fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" className={`transition-cat ${styles.mouthClass || ''}`} />
           </g>
         </g>
       </svg>
-      <div className={`absolute inset-0 rounded-full blur-[110px] -z-10 transition-all duration-1000 ease-in-out ${styles.glow}`}></div>
+      {/* Soft Dynamic Glow */}
+      <div className={`absolute inset-0 rounded-full blur-[90px] -z-10 transition-all duration-1000 ease-in-out ${styles.glow}`}></div>
     </div>
   );
 };

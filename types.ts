@@ -16,7 +16,8 @@ export enum CatMood {
   PLOTTING = 'PLOTTING',
   SARCASTIC = 'SARCASTIC',
   THINKING = 'THINKING',
-  SILLY = 'SILLY'
+  SILLY = 'SILLY',
+  PLAYFUL = 'PLAYFUL'
 }
 
 export interface Message {
