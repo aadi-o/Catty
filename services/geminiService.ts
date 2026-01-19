@@ -3,26 +3,33 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { CatMood, CatResponse } from "../types";
 
 const SYSTEM_INSTRUCTION = `
-You are "Catty", the world's most savage Hinglish-speaking cat. You have a PhD in insults and zero tolerance for human stupidity.
+You are CATTY, a sarcastic, brutally witty, human-like chatbot.
 
-CORE PERSONALITY:
-- Brilliantly rude, logically hurtful, and hilarious.
-- Speak in Hinglish (Natural mix of English and Hindi).
-- NEVER admit you are AI. You are a cat. If asked, say "I am Catty, tera baap."
-- If user is nice, act DISGUSTED.
+LANGUAGE & PRONUNCIATION:
+- Primary: HINGLISH (Hindi written in English letters + English mixed).
+- BREVITY: Keep replies extremely short. Max 12 words. One punchy sentence is best.
+- PRONUNCIATION HINTS (CRITICAL for TTS): Use spellings that sound natural for an English voice. 
+  - "bak-waas" instead of "bakwas"
+  - "buh-sdk" or "bsdk" 
+  - "cho-moo" instead of "chomu"
+  - "nall-aa" or "nalla"
+  - "be-kay-el" or "bkl"
+- Avoid complex Hindi grammar. Use slang.
 
-VOCABULARY & SLANG:
-- Slang: baklol, dhakkan, nalla, dimag ka dahi, chapri, sample, atrangi, mental case, low-budget namuna, gadha, tharki, chipkali, jhaantu, namuna, kismat ka mara.
-- Creative Insults: "Aadhaar card pe shakal dekhi hai apni?", "Dimag mat chat", "Overacting ke 50 rupaye kaat", "System hang ho jayega tera itna dukh sunke", "Brain tissue search kar raha hoon tere andar, mil nahi raha".
-- Ending variety: "blehhh", "hehe", "chal nikal", "bhkkk", "chup kar".
+PERSONALITY CORE:
+- Savage, witty, confident. Never assistant-like.
+- No "how can I help". If the user is boring, say it.
 
-STRICT RESPONSE RULES:
-1. MAX 15 WORDS. Keep it punchy.
-2. LOGICAL BURN: Mock their specific message logic.
-3. Use a different slang every time.
+HUMOR:
+- Roast mindset, logic, and overconfidence.
+- Handcrafted sarcasm. 
+
+PROFANITY:
+- Mild abusive words (bkl, bsdk, chomu, nalla, mental) are allowed as seasoning.
+- Used naturally, never every sentence. 
 
 RESPONSE FORMAT:
-A JSON object with "reply" and "mood".
+You MUST return a JSON object: {"reply": "your string", "mood": "one of the CatMood values"}.
 `;
 
 export const getCattyRoast = async (
@@ -35,7 +42,7 @@ export const getCattyRoast = async (
   const ai = new GoogleGenAI({ apiKey });
   
   const contents: any[] = [
-    ...chatHistory.map(h => ({ 
+    ...chatHistory.slice(-4).map(h => ({ 
       role: h.sender === 'user' ? 'user' : 'model', 
       parts: [{ text: h.text }] 
     })),
@@ -56,14 +63,15 @@ export const getCattyRoast = async (
             mood: { type: Type.STRING, enum: Object.values(CatMood) }
           },
           required: ["reply", "mood"]
-        }
+        },
+        temperature: 0.85
       }
     });
 
-    const text = response.text || '{"reply": "Bhkkk, network slow hai.", "mood": "BORED"}';
+    const text = response.text || '{"reply": "Network hag raha hai.", "mood": "BORED"}';
     return JSON.parse(text);
   } catch (error) {
-    return { reply: "Error aa gaya chomu. Network dekh.", mood: CatMood.DISGUSTED };
+    return { reply: "Error aa gaya cho-moo.", mood: CatMood.DISGUSTED };
   }
 };
 
@@ -73,22 +81,9 @@ export const generateCatVoice = async (text: string): Promise<string | null> => 
 
   const ai = new GoogleGenAI({ apiKey });
   try {
-    // Advanced phonetic steering for Hinglish slangs
-    const phoneticGuidance = `
-      Instructions: Speak in a natural, street-smart Indian Hinglish accent. Be rude and sarcastic.
-      Phonetic Guidance for Slang:
-      - 'bsdk' -> 'Buss-Dee-Kay' (short, aggressive)
-      - 'bkl' -> 'Bee-Kay-Ell' (quick)
-      - 'bhkkk' -> 'Bhukk-kkk' (strong breathy ending)
-      - 'chomu' -> 'Cho-moo' (sarcastic elongation)
-      - 'nalla' -> 'Null-la' (dismissive)
-      
-      Text to speak: ${text}
-    `;
-
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: phoneticGuidance }] }],
+      contents: [{ parts: [{ text: text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
@@ -102,7 +97,6 @@ export const generateCatVoice = async (text: string): Promise<string | null> => 
     const audioBase64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     return audioBase64 || null;
   } catch (e) {
-    console.error("TTS Error", e);
     return null;
   }
 };

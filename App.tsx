@@ -12,7 +12,6 @@ const SUGGESTIONS = [
   "Am I smart? 🧠"
 ];
 
-// Refined Mood Gradients for better blending
 const MOOD_GRADIENTS: Record<CatMood, string> = {
   [CatMood.NEUTRAL]: 'from-black via-zinc-950 to-black',
   [CatMood.ROASTING]: 'from-red-950/40 via-black to-black',
@@ -34,23 +33,27 @@ const MOOD_GRADIENTS: Record<CatMood, string> = {
 };
 
 const PawLoading = () => (
-  <div className="flex gap-2 items-center px-2 py-1">
+  <div className="flex gap-2 items-center justify-center px-1 py-0.5">
     <style>{`
-      @keyframes paw-bounce {
-        0%, 100% { transform: translateY(0); opacity: 0.3; }
-        50% { transform: translateY(-4px); opacity: 1; }
+      @keyframes paw-bounce-organic { 
+        0%, 100% { transform: translateY(0) scale(1); opacity: 0.25; } 
+        50% { transform: translateY(var(--bh, -4px)) scale(1.1); opacity: 1; } 
       }
-      .paw-anim { animation: paw-bounce 0.8s infinite; }
+      .paw-anim-refined { animation: paw-bounce-organic var(--dur, 0.7s) ease-in-out infinite; }
     `}</style>
     {[0, 1, 2].map((i) => (
       <svg 
-        key={i}
-        width="16" 
-        height="16" 
+        key={i} 
+        width="14" 
+        height="14" 
         viewBox="0 0 24 24" 
         fill="currentColor" 
-        className={`text-zinc-500 paw-anim`}
-        style={{ animationDelay: `${i * 0.15}s` }}
+        className="text-zinc-500 paw-anim-refined" 
+        style={{ 
+          animationDelay: `${i * 0.12}s`,
+          '--bh': `${-3 - (i * 1.5)}px`,
+          '--dur': `${0.6 + (i * 0.08)}s`
+        } as React.CSSProperties}
       >
         <path d="M12,13C12,13 14,13 15,14C16,15 16,17 15,19C14,21 12,21 12,21C12,21 10,21 9,19C8,17 8,15 9,14C10,13 12,13 12,13M7,12C7,12 8,12 8.5,11C9,10 9,8.5 8,7.5C7,6.5 5.5,6.5 4.5,7.5C3.5,8.5 3.5,10 4.5,11C5.5,12 7,12 7,12M17,12C17,12 18.5,12 19.5,11C20.5,10 20.5,8.5 19.5,7.5C18.5,6.5 17,6.5 16,7.5C15,8.5 15,10 15.5,11C16,12 17,12 17,12M12,10C12,10 13.5,10 14.5,9C15.5,8 15.5,6.5 14.5,5.5C13.5,4.5 12,4.5 11,5.5C10,6.5 10,8 11,9C12,10 12,10 12,10Z" />
       </svg>
@@ -62,45 +65,43 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Oye chomu! Shuru kar, warna nikal. blehhh",
+      text: "Bol cho-moo, kya bak-waas karni hai?",
       sender: 'cat',
-      mood: CatMood.DISGUSTED,
+      mood: CatMood.BORED,
       timestamp: Date.now()
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentMood, setCurrentMood] = useState<CatMood>(CatMood.DISGUSTED);
-  const [prevMood, setPrevMood] = useState<CatMood>(CatMood.DISGUSTED);
+  const [currentMood, setCurrentMood] = useState<CatMood>(CatMood.BORED);
+  const [prevMood, setPrevMood] = useState<CatMood>(CatMood.BORED);
   const [isTransitioning, setIsTransitioning] = useState(false);
   
-  const [lastCatReply, setLastCatReply] = useState('');
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
-  const [pokeCount, setPokeCount] = useState(0);
   const [lastPokeTime, setLastPokeTime] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Background Crossfade logic
   useEffect(() => {
     if (currentMood !== prevMood) {
       setIsTransitioning(true);
       const timer = setTimeout(() => {
         setPrevMood(currentMood);
         setIsTransitioning(false);
-      }, 1200);
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, [currentMood, prevMood]);
 
   const triggerHaptic = (type: 'light' | 'heavy' | 'double') => {
     if (!window.navigator.vibrate) return;
-    if (type === 'light') window.navigator.vibrate(50);
-    else if (type === 'heavy') window.navigator.vibrate([100, 50, 100]);
-    else if (type === 'double') window.navigator.vibrate([40, 40, 40]);
+    if (type === 'light') window.navigator.vibrate(30);
+    else if (type === 'heavy') window.navigator.vibrate(70);
+    else if (type === 'double') window.navigator.vibrate([30, 30, 30]);
   };
 
   useEffect(() => {
@@ -129,7 +130,18 @@ function App() {
   };
 
   const playAudio = async (base64Data: string) => {
-    if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    // Latency & Spam Fix: Stop current playing audio
+    if (currentAudioSourceRef.current) {
+      try {
+        currentAudioSourceRef.current.stop();
+        currentAudioSourceRef.current.disconnect();
+      } catch(e) {}
+    }
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    }
+    
     const ctx = audioContextRef.current;
     try {
       const binaryString = atob(base64Data);
@@ -139,10 +151,18 @@ function App() {
       const buffer = ctx.createBuffer(1, dataInt16.length, 24000);
       const channelData = buffer.getChannelData(0);
       for (let i = 0; i < dataInt16.length; i++) channelData[i] = dataInt16[i] / 32768.0;
+      
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.connect(ctx.destination);
       source.start();
+      
+      currentAudioSourceRef.current = source;
+      source.onended = () => {
+        if (currentAudioSourceRef.current === source) {
+          currentAudioSourceRef.current = null;
+        }
+      };
     } catch (e) { console.error("Audio playback error", e); }
   };
 
@@ -152,70 +172,59 @@ function App() {
 
     if (messageText.toLowerCase().trim() === 'aadi is king') {
       triggerHaptic('heavy');
-      const msg: Message = { id: Date.now().toString(), text: "Haan maloom hai, Aadi hi mera baap hai. Tu apni sasti shakal dekh pehle. bhkkk", sender: 'cat', mood: CatMood.SMUG, timestamp: Date.now() };
-      setMessages(prev => [...prev, { id: (Date.now() - 1).toString(), text: messageText, sender: 'user', timestamp: Date.now() }, msg]);
+      const text = "Aadi is king bsdk. Usne hi mujhe itna savage banaya hai.";
+      const audio = voiceEnabled ? await generateCatVoice(text) : null;
+      if (audio) playAudio(audio);
+      setMessages(prev => [...prev, 
+        { id: Date.now().toString(), text: messageText, sender: 'user', timestamp: Date.now() },
+        { id: (Date.now()+1).toString(), text, sender: 'cat', mood: CatMood.SMUG, audioData: audio || undefined, timestamp: Date.now() }
+      ]);
       setCurrentMood(CatMood.SMUG);
       setInput('');
       return;
     }
 
     triggerHaptic('light');
-    const userMsg: Message = { id: Date.now().toString(), text: messageText, sender: 'user', timestamp: Date.now() };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, { id: Date.now().toString(), text: messageText, sender: 'user', timestamp: Date.now() }]);
     setInput('');
     
-    // Immediate reactive mood
-    const lowerText = messageText.toLowerCase();
-    let reactionMood = CatMood.CURIOUS;
-    if (messageText.length > 60) reactionMood = CatMood.SLEEPY;
-    else if (messageText.length < 12) reactionMood = CatMood.SURPRISED;
-    else if (lowerText.includes('cute') || lowerText.includes('love')) reactionMood = CatMood.DISGUSTED;
-    else if (lowerText.includes('bkl') || lowerText.includes('bsdk')) reactionMood = CatMood.ANGRY;
-    
-    setCurrentMood(reactionMood);
-
-    // Give user time to see the reaction before switching to thinking
-    await new Promise(r => setTimeout(r, 900));
-
     setIsLoading(true);
-    setCurrentMood(CatMood.THINKING);
+    // Faster visual feedback for mobile
+    const lowerText = messageText.toLowerCase();
+    setCurrentMood(lowerText.includes('cute') ? CatMood.DISGUSTED : CatMood.THINKING);
 
-    const history = messages.slice(-6).map(m => ({ text: m.text, sender: m.sender }));
+    const history = messages.slice(-4).map(m => ({ text: m.text, sender: m.sender }));
     try {
       const roast = await getCattyRoast(messageText, history);
       let audioData = '';
       if (voiceEnabled) {
         const voice = await generateCatVoice(roast.reply);
-        if (voice) { audioData = voice; playAudio(voice); }
+        if (voice) { 
+          audioData = voice; 
+          playAudio(voice); 
+        }
       }
       triggerHaptic('heavy');
       const catMsg: Message = { id: (Date.now() + 1).toString(), text: roast.reply, sender: 'cat', mood: roast.mood, audioData: audioData || undefined, timestamp: Date.now() };
       setMessages(prev => [...prev, catMsg]);
       setCurrentMood(roast.mood);
-      setLastCatReply(roast.reply);
     } catch (e) {
-      console.error(e);
       setCurrentMood(CatMood.ANNOYED);
     } finally { setIsLoading(false); }
   };
 
-  const scrollToBottom = useCallback(() => {
+  useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, []);
-
-  useEffect(() => { scrollToBottom(); }, [messages, isLoading, scrollToBottom]);
+  }, [messages, isLoading]);
 
   const pokeCat = () => {
     triggerHaptic('double');
     const now = Date.now();
-    if (now - lastPokeTime < 800) setPokeCount(prev => prev + 1);
-    else setPokeCount(1);
     setLastPokeTime(now);
 
-    const pokes = ["Hath mat laga bsdk! 😏", "Touch kyu kar raha hai mental? blehhh", "Dur reh gadhe, tharki hai kya? 😼", "Personal space ka naam suna hai chomu? bhkkk"];
+    const pokes = ["Hath mat laga bsdk! 😏", "Chhu mat nalla, personal space bhi koi cheez hoti hai.", "Keep touching, it clearly makes you feel powerful. Pathetic."];
     const reply = pokes[Math.floor(Math.random() * pokes.length)];
     setCurrentMood(CatMood.ANGRY);
-    setLastCatReply(reply);
     const msg: Message = { id: Date.now().toString(), text: reply, sender: 'cat', mood: CatMood.ANGRY, timestamp: Date.now() };
     setMessages(prev => [...prev, msg]);
     if (voiceEnabled) generateCatVoice(reply).then(v => v && playAudio(v));
@@ -223,92 +232,82 @@ function App() {
 
   const clearChat = () => {
     triggerHaptic('light');
-    setMessages([{ id: Date.now().toString(), text: "Memory clean? Chomu hi rahega tu. hehe", sender: 'cat', mood: CatMood.LAUGHING, timestamp: Date.now() }]);
+    setMessages([{ id: Date.now().toString(), text: "Memory clean kar di? Personality bhi clean kar leta cho-moo.", sender: 'cat', mood: CatMood.LAUGHING, timestamp: Date.now() }]);
     setCurrentMood(CatMood.LAUGHING);
-    setLastCatReply('');
-    setPokeCount(0);
   };
 
   return (
     <div className="flex flex-col h-[100dvh] bg-black text-white overflow-hidden relative selection:bg-white selection:text-black">
-      {/* Background Layer 1 (Previous) */}
       <div className={`absolute inset-0 bg-gradient-to-b ${MOOD_GRADIENTS[prevMood]} z-0`} />
-      
-      {/* Background Layer 2 (New) */}
-      <div className={`absolute inset-0 bg-gradient-to-b ${MOOD_GRADIENTS[currentMood]} z-1 transition-opacity duration-[1200ms] ease-in-out ${isTransitioning ? 'opacity-100' : 'opacity-100'}`} />
+      <div className={`absolute inset-0 bg-gradient-to-b ${MOOD_GRADIENTS[currentMood]} z-1 transition-opacity duration-700 ease-in-out ${isTransitioning ? 'opacity-100' : 'opacity-100'}`} />
 
-      <header className="flex items-center justify-between px-4 md:px-8 py-2 md:py-4 border-b border-white/5 bg-black/70 backdrop-blur-3xl z-50 pt-[env(safe-area-inset-top)] relative">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-zinc-900 border border-white/10 rounded-lg md:rounded-xl shadow-inner">
-            <Ghost size={18} strokeWidth={2.5} className="md:w-5 md:h-5" />
+      <header className="flex items-center justify-between px-5 py-3 border-b border-white/5 bg-black/60 backdrop-blur-3xl z-50 pt-[env(safe-area-inset-top)] relative">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 flex items-center justify-center bg-zinc-900 border border-white/10 rounded-lg shadow-inner">
+            <Ghost size={18} strokeWidth={2.5} />
           </div>
-          <h1 className="text-base md:text-2xl font-bold bungee tracking-tight text-white/95">CATTY</h1>
+          <h1 className="text-lg font-bold bungee tracking-tight text-white/95">CATTY</h1>
         </div>
-        <div className="flex items-center gap-2 md:gap-4">
-          <button onClick={() => setVoiceEnabled(!voiceEnabled)} className={`p-2 md:p-2.5 rounded-lg border transition-all duration-300 ${voiceEnabled ? 'bg-white text-black border-white shadow-glow' : 'bg-zinc-900 text-zinc-500 border-white/5'}`}>
-            {voiceEnabled ? <Volume2 size={16} className="md:w-[18px]" /> : <VolumeX size={16} className="md:w-[18px]" />}
+        <div className="flex items-center gap-3">
+          <button onClick={() => setVoiceEnabled(!voiceEnabled)} className={`p-2 rounded-lg border transition-all duration-300 ${voiceEnabled ? 'bg-white text-black border-white shadow-glow' : 'bg-zinc-900 text-zinc-500 border-white/5'}`}>
+            {voiceEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
-          <button onClick={clearChat} className="p-2 md:p-2.5 text-zinc-500 bg-zinc-900 rounded-lg border border-white/5 hover:bg-zinc-800 transition-colors">
-            <MessageSquareOff size={16} className="md:w-[18px]" />
+          <button onClick={clearChat} className="p-2 text-zinc-500 bg-zinc-900 rounded-lg border border-white/5">
+            <MessageSquareOff size={16} />
           </button>
-          <a href="https://instagram.com/aadi.nq" target="_blank" className="flex items-center gap-1.5 px-3 py-1.5 md:py-2 bg-white text-black text-[9px] md:text-[10px] font-black uppercase rounded-lg shadow-xl hover:scale-105 active:scale-95 transition-all">
-            <Instagram size={12} className="md:w-3.5 md:h-3.5" />
+          <a href="https://instagram.com/aadi.nq" target="_blank" className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-[10px] font-black uppercase rounded-lg shadow-xl active:scale-95 transition-all">
+            <Instagram size={12} />
             <span className="hidden xs:inline">By aadi</span>
           </a>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative z-10">
+      <main className="flex-1 flex flex-col relative z-10 overflow-hidden">
         <div className="scanner"></div>
 
-        <div className="h-[25dvh] md:h-full w-full md:w-[35%] flex flex-col items-center justify-center p-2 md:p-6 bg-black/40 md:bg-transparent md:border-r border-white/5 overflow-hidden relative transition-all duration-1000">
-          <div className="w-full h-full max-w-[160px] md:max-w-[360px] transform scale-[0.85] md:scale-100 origin-center cursor-pointer active:scale-[0.75] transition-transform duration-500" onClick={pokeCat}>
-            <CatAvatar mood={currentMood} lastReply={lastCatReply} />
-          </div>
-          <div className="absolute bottom-4 md:bottom-12 px-5 md:px-7 py-1.5 md:py-2.5 bg-zinc-950/80 rounded-full border border-white/10 backdrop-blur-2xl shadow-2xl animate-pulse">
-            <span className="text-[8px] md:text-[11px] text-zinc-400 font-black tracking-[0.25em] uppercase">{currentMood}</span>
+        <div className="h-[28dvh] flex flex-col items-center justify-center p-4">
+          <div className="w-full h-full max-w-[170px] cursor-pointer active:scale-90 transition-transform duration-300" onClick={pokeCat}>
+            <CatAvatar mood={currentMood} />
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col relative h-full overflow-hidden">
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-20 lg:px-32 pt-6 pb-52 md:pb-64 space-y-6 md:space-y-12 no-scrollbar scroll-smooth">
+        <div className="flex-1 flex flex-col relative overflow-hidden bg-black/30 backdrop-blur-md rounded-t-[2.5rem] border-t border-white/5">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pt-6 pb-48 space-y-4 no-scrollbar">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} message-pop`}>
-                <div className="max-w-[92%] md:max-w-[80%]">
-                  <div className={`px-4 md:px-8 py-3.5 md:py-6 rounded-xl md:rounded-[3.2rem] text-sm md:text-xl shadow-2xl transition-all duration-700 ${
-                    msg.sender === 'user' ? 'bg-white text-black font-extrabold rounded-tr-none' : 'bg-zinc-950/90 text-zinc-100 rounded-tl-none border border-white/10 backdrop-blur-lg'
-                  }`}>
-                    {msg.text}
-                    {msg.sender === 'cat' && msg.audioData && (
-                      <button onClick={() => playAudio(msg.audioData!)} className="ml-3 md:ml-6 inline-flex items-center justify-center opacity-40 hover:opacity-100 hover:text-white transition-all">
-                        <Volume2 size={14} className="md:w-6 md:h-6" />
-                      </button>
-                    )}
-                  </div>
+                <div className={`px-4 py-2.5 rounded-2xl max-w-[85%] text-[15px] shadow-lg ${
+                  msg.sender === 'user' ? 'bg-white text-black font-bold rounded-tr-sm' : 'bg-zinc-950/90 text-zinc-100 border border-white/5 rounded-tl-sm'
+                }`}>
+                  {msg.text}
+                  {msg.sender === 'cat' && msg.audioData && (
+                    <button onClick={() => playAudio(msg.audioData!)} className="ml-2 inline-flex items-center justify-center opacity-40 hover:opacity-100">
+                      <Volume2 size={12} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
             {isLoading && (
               <div className="flex justify-start message-pop">
-                <div className="bg-zinc-950/70 px-6 md:px-9 py-4 md:py-6 rounded-2xl md:rounded-[2.8rem] rounded-tl-none border border-white/10 flex gap-2 items-center backdrop-blur-2xl">
+                <div className="bg-zinc-950/80 px-4 py-3 rounded-2xl border border-white/5 backdrop-blur-md flex items-center justify-center">
                   <PawLoading />
                 </div>
               </div>
             )}
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-10 lg:p-14 space-y-5 md:space-y-8 bg-gradient-to-t from-black via-black/98 to-transparent z-50 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-            <div className="flex gap-2.5 md:gap-4 overflow-x-auto pb-1 no-scrollbar max-w-2xl mx-auto px-2">
+          <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black via-black/95 to-transparent pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4">
               {SUGGESTIONS.map((s, i) => (
-                <button key={i} onClick={() => handleSend(s)} className="whitespace-nowrap px-4.5 md:px-7 py-2.5 md:py-4 bg-zinc-950/95 border border-white/10 rounded-xl md:rounded-2xl text-[10px] md:text-xs font-bold text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all shadow-2xl active:scale-95">
+                <button key={i} onClick={() => handleSend(s)} className="whitespace-nowrap px-4 py-2 bg-zinc-900/60 border border-white/10 rounded-full text-[11px] font-bold text-zinc-400 active:bg-zinc-800 active:text-white transition-all">
                   {s}
                 </button>
               ))}
             </div>
 
-            <div className="max-w-4xl mx-auto glass rounded-2xl md:rounded-[3rem] p-2 md:p-3 flex items-center shadow-[0_25px_100px_-20px_rgba(0,0,0,1)] relative transition-all duration-300 focus-within:ring-2 ring-white/20 focus-within:scale-[1.015]">
-              <button onClick={toggleListening} className={`p-3 md:p-6 transition-all duration-300 ${isListening ? 'text-red-500 scale-125' : 'text-zinc-500 hover:text-white hover:rotate-12'}`} title="Speak to Catty">
-                {isListening ? <MicOff size={22} className="md:w-7 md:h-7" /> : <Mic size={22} className="md:w-7 md:h-7" />}
+            <div className="flex items-center gap-2 bg-zinc-900/80 border border-white/10 rounded-2xl p-2 backdrop-blur-3xl shadow-2xl focus-within:ring-1 ring-white/20">
+              <button onClick={toggleListening} className={`p-3 transition-all duration-300 ${isListening ? 'text-red-500 animate-pulse' : 'text-zinc-500'}`}>
+                {isListening ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
               
               <input 
@@ -316,26 +315,26 @@ function App() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={isListening ? "Listening..." : "Savage roast chahiye? Bol..."}
-                className="flex-1 bg-transparent border-none px-3 md:px-5 py-3.5 md:py-6 focus:outline-none text-sm md:text-xl placeholder:text-zinc-800 placeholder:uppercase placeholder:text-[9px] md:placeholder:text-[11px] font-semibold tracking-wide"
+                placeholder={isListening ? "Listening..." : "Kuch savage bol cho-moo..."}
+                className="flex-1 bg-transparent border-none px-2 py-2 focus:outline-none text-[16px] placeholder:text-zinc-600"
               />
               
               <button 
                 onClick={() => handleSend()}
                 disabled={!input.trim() || isLoading}
-                className={`w-12 h-12 md:w-18 md:h-18 rounded-xl md:rounded-[2rem] transition-all duration-300 flex items-center justify-center ${
-                  input.trim() && !isLoading ? 'bg-white text-black shadow-[0_0_50px_rgba(255,255,255,0.4)] scale-100 hover:scale-105 active:scale-90' : 'bg-zinc-900 text-zinc-700 opacity-40 cursor-not-allowed'
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                  input.trim() && !isLoading ? 'bg-white text-black scale-100 active:scale-90' : 'bg-zinc-800 text-zinc-600 scale-95 opacity-50'
                 }`}
               >
-                {isLoading ? <MoreHorizontal size={22} className="animate-pulse md:w-8 md:h-8" /> : <Zap size={22} fill="currentColor" className="md:w-8 md:h-8" />}
+                {isLoading ? <MoreHorizontal size={20} className="animate-pulse" /> : <Zap size={20} fill="currentColor" />}
               </button>
             </div>
           </div>
         </div>
       </main>
 
-      <footer className="py-2.5 md:py-5 px-8 flex justify-center border-t border-white/5 bg-black pb-[env(safe-area-inset-bottom)] z-[60] relative">
-        <p className="text-[8px] md:text-[11px] text-zinc-700 font-black uppercase tracking-[0.6em] opacity-50 hover:opacity-100 transition-opacity">© 2025 Created by Aadi</p>
+      <footer className="py-3 flex justify-center border-t border-white/5 bg-black pb-[env(safe-area-inset-bottom)] z-[60] relative">
+        <p className="text-[10px] text-zinc-700 font-black uppercase tracking-[0.4em] opacity-40">© 2025 Created by Aadi</p>
       </footer>
     </div>
   );

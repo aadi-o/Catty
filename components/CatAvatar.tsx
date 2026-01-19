@@ -52,9 +52,11 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
         const moveY = Math.sin(angle) * Math.min(maxOffset, dist / sensitivity);
         setMousePos({ x: moveX, y: moveY });
       } else if (mood === CatMood.THINKING) {
+        // Subtle ambient drift while thinking
+        const time = Date.now();
         setMousePos({ 
-          x: Math.sin(Date.now() / 800) * 3, 
-          y: Math.cos(Date.now() / 900) * 2 
+          x: Math.sin(time / 800) * 3, 
+          y: Math.cos(time / 950) * 2 
         });
       }
     };
@@ -77,12 +79,14 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
     switch (mood) {
       case CatMood.THINKING:
         return {
-          eyes: { left: "M 38 45 A 2 2 0 1 1 37.9 45", right: "M 62 45 A 2 2 0 1 1 61.9 45", t: 2.5 },
-          mouth: "M 46 70 Q 50 68 54 70",
+          eyes: { left: "M 38 46 A 2.5 2.5 0 1 1 37.9 46", right: "M 62 46 A 2.5 2.5 0 1 1 61.9 46", t: 3 },
+          mouth: "M 46 72 Q 50 70 54 72",
           glow: "bg-blue-600/30",
-          eyeClass: "animate-pulse",
+          eyeClass: "animate-pulse-subtle",
           isThinking: true,
-          breatheType: 'animate-breathe-gentle'
+          breatheType: 'animate-breathe-gentle',
+          eyebrows: { left: "M 30 38 Q 38 35 44 38", right: "M 56 38 Q 62 35 70 38", t: 1.5, class: "animate-eyebrow-raise" },
+          headClass: "animate-head-bob-thinking"
         };
       case CatMood.SILLY:
         return {
@@ -90,7 +94,8 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
           mouth: "M 38 72 Q 50 85 62 72",
           glow: "bg-pink-500/40",
           showTongue: true,
-          breatheType: 'animate-breathe-heavy'
+          breatheType: 'animate-breathe-heavy',
+          eyebrows: { left: "M 32 40 Q 40 35 48 40", right: "M 52 40 Q 60 35 68 40", t: 1, class: "" }
         };
       case CatMood.SLEEPY:
         return {
@@ -98,56 +103,64 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
           mouth: "M 40 72 Q 50 96 60 72",
           glow: "bg-blue-900/20",
           mouthClass: "animate-yawn",
-          breatheType: 'animate-breathe-sleep'
+          breatheType: 'animate-breathe-sleep',
+          eyebrows: { left: "M 32 44 Q 40 46 48 44", right: "M 52 44 Q 60 46 68 44", t: 0.8, class: "" }
         };
       case CatMood.ANGRY:
         return {
           eyes: { left: "M 30 40 L 48 50", right: "M 70 40 L 52 50", t: 6.5 },
           mouth: "M 40 75 L 60 75",
           glow: "bg-red-600/60",
-          breatheType: 'animate-breathe-heavy'
+          breatheType: 'animate-breathe-heavy',
+          eyebrows: { left: "M 28 35 L 48 45", right: "M 72 35 L 52 45", t: 3.5, class: "" }
         };
       case CatMood.LAUGHING:
         return {
           eyes: { left: "M 35 48 Q 40 42 45 48", right: "M 55 48 Q 60 42 65 48", t: 4 },
           mouth: "M 35 65 Q 50 95 65 65",
           glow: "bg-emerald-600/30",
-          breatheType: 'animate-breathe-heavy'
+          breatheType: 'animate-breathe-heavy',
+          eyebrows: { left: "M 30 40 Q 40 32 48 40", right: "M 52 40 Q 60 32 70 40", t: 1.2, class: "" }
         };
       case CatMood.SURPRISED:
         return {
           eyes: { left: "M 30 45 A 6.5 6.5 0 1 1 29.9 45", right: "M 70 45 A 6.5 6.5 0 1 1 69.9 45", t: 3.5 },
           mouth: "M 46 75 A 4.5 4.5 0 1 1 45.9 75",
           glow: "bg-yellow-500/30",
-          breatheType: 'animate-breathe-gentle'
+          breatheType: 'animate-breathe-gentle',
+          eyebrows: { left: "M 25 32 Q 35 25 45 32", right: "M 55 32 Q 65 25 75 32", t: 2, class: "" }
         };
       case CatMood.EVIL_SMILE:
         return {
           eyes: { left: "M 32 46 Q 40 38 48 46", right: "M 52 46 Q 60 38 68 46", t: 5.5 },
           mouth: "M 32 68 Q 50 90 68 68 L 62 66 Q 50 82 38 66 Z",
           glow: "bg-red-900/80",
-          breatheType: 'animate-breathe-heavy'
+          breatheType: 'animate-breathe-heavy',
+          eyebrows: { left: "M 30 38 L 48 42", right: "M 70 38 L 52 42", t: 2.5, class: "" }
         };
       case CatMood.DISGUSTED:
         return {
           eyes: { left: "M 32 44 L 48 48", right: "M 68 44 L 52 48", t: 5 },
           mouth: "M 44 76 Q 50 68 56 76",
           glow: "bg-purple-900/50",
-          breatheType: 'animate-breathe-gentle'
+          breatheType: 'animate-breathe-gentle',
+          eyebrows: { left: "M 34 38 Q 40 40 46 38", right: "M 54 38 Q 60 40 66 38", t: 2, class: "" }
         };
       case CatMood.SARCASTIC:
         return {
           eyes: { left: "M 34 43 Q 40 40 46 43", right: "M 54 43 Q 60 46 66 43", t: 4 },
           mouth: "M 44 70 Q 55 75 66 65",
           glow: "bg-indigo-600/40",
-          breatheType: 'animate-breathe-gentle'
+          breatheType: 'animate-breathe-gentle',
+          eyebrows: { left: "M 30 35 Q 40 38 48 35", right: "M 52 35 Q 60 32 70 35", t: 1.5, class: "" }
         };
       default:
         return {
           eyes: { left: "M 35 45 Q 40 42 45 45", right: "M 55 45 Q 60 42 65 45", t: 4 },
           mouth: "M 44 68 Q 50 70 56 68",
           glow: "bg-zinc-800/10",
-          breatheType: 'animate-breathe-gentle'
+          breatheType: 'animate-breathe-gentle',
+          eyebrows: { left: "M 32 40 Q 40 38 48 40", right: "M 52 40 Q 60 38 68 40", t: 1, class: "" }
         };
     }
   }, [mood]);
@@ -221,8 +234,30 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.025); }
         }
+        @keyframes head-bob-thinking {
+          0%, 100% { transform: translate(0, 0) rotate(0.2deg); }
+          15% { transform: translate(2px, -3px) rotate(1.8deg); }
+          35% { transform: translate(-2px, -1px) rotate(-1.2deg); }
+          55% { transform: translate(1.5px, -4px) rotate(2.2deg); }
+          75% { transform: translate(-1px, -2px) rotate(-0.5deg); }
+          90% { transform: translate(0.5px, -1px) rotate(0.8deg); }
+        }
+        @keyframes eyebrow-raise-thinking {
+          0%, 100% { transform: translateY(0); }
+          15% { transform: translateY(-5px); }
+          25% { transform: translateY(-2px); }
+          45% { transform: translateY(-7px); }
+          65% { transform: translateY(-1px); }
+          80% { transform: translateY(-4px); }
+        }
+        @keyframes pulse-subtle {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.7; transform: scale(0.95); }
+        }
+
         .animate-spin-loader { transform-origin: center; animation: circular-spin 2s linear infinite; }
         .animate-pulse-glow { transform-origin: center; animation: pulse-glow 2s ease-in-out infinite; }
+        .animate-pulse-subtle { animation: pulse-subtle 1.8s ease-in-out infinite; }
         .animate-breathe-heavy { transform-origin: center; animation: breathe-heavy-fx ${breatheDuration} ease-in-out infinite; }
         .animate-breathe-gentle { transform-origin: center; animation: breathe-gentle-fx ${breatheDuration} ease-in-out infinite; }
         .animate-breathe-sleep { transform-origin: center; animation: breathe-sleep-fx ${breatheDuration} ease-in-out infinite; }
@@ -233,6 +268,10 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
         .animate-tail { transform-origin: 25px 80px; animation: tail-swish ${tailDuration} ease-in-out infinite; }
         .animate-mood-stretch { animation: mood-stretch 0.6s cubic-bezier(0.34, 1.65, 0.64, 1) forwards; }
         .animate-mood-stretch-slow { animation: mood-stretch-slow 1.6s cubic-bezier(0.4, 0, 0.5, 1) forwards; }
+        
+        .animate-head-bob-thinking { animation: head-bob-thinking 4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite; transform-origin: center center; }
+        .animate-eyebrow-raise { animation: eyebrow-raise-thinking 3.2s ease-in-out infinite; }
+
         .path-morph {
           transition: d 0.55s cubic-bezier(0.4, 0, 0.2, 1), stroke-width 0.55s ease-in-out, opacity 0.55s ease-in-out, fill 0.55s ease-in-out;
         }
@@ -256,16 +295,25 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '' }) => {
           </g>
         )}
 
-        <g className={styles.breatheType}>
+        <g className={`${styles.breatheType} ${styles.headClass || ''}`}>
           <path d="M 15 35 L 35 10 L 45 40 Z" fill="#080808" className="animate-ear-l" />
           <path d="M 85 35 L 65 10 L 55 40 Z" fill="#080808" className="animate-ear-r" />
           <circle cx="50" cy="50" r="42" fill="#000" stroke="#151515" strokeWidth="2" />
           
           <g transform={`translate(${mousePos.x}, ${mousePos.y})`} className="transition-transform duration-500 ease-out">
+            {/* Eyebrows */}
+            {styles.eyebrows && (
+              <g className={styles.eyebrows.class}>
+                <path d={styles.eyebrows.left} fill="none" stroke="#fff" strokeWidth={styles.eyebrows.t} strokeLinecap="round" className="path-morph opacity-60" />
+                <path d={styles.eyebrows.right} fill="none" stroke="#fff" strokeWidth={styles.eyebrows.t} strokeLinecap="round" className="path-morph opacity-60" />
+              </g>
+            )}
+            
             <g className={styles.eyeClass || ''} style={{ transform: blinkTrigger ? 'scaleY(0.04)' : 'scaleY(1)', transition: 'transform 0.12s', transformOrigin: 'center 45px' }}>
                <path d={styles.eyes.left} fill="none" stroke="#fff" strokeWidth={styles.eyes.t} strokeLinecap="round" className="path-morph" />
                <path d={styles.eyes.right} fill="none" stroke="#fff" strokeWidth={styles.eyes.t} strokeLinecap="round" className="path-morph" />
             </g>
+            
             <path d="M 48 58 L 52 58 L 50 61 Z" fill="#fff" opacity="0.95" />
             {styles.showTongue && (
                <path d="M 46 76 Q 50 86 54 76" fill="#f43f5e" className="animate-tongue" />
