@@ -46,6 +46,10 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '', userInput =
         const moveX = Math.cos(angle) * Math.min(maxOffset, dist / sensitivity);
         const moveY = Math.sin(angle) * Math.min(maxOffset, dist / sensitivity);
         setMousePos({ x: moveX, y: moveY });
+      } else if (mood === CatMood.THINKING) {
+        // Subtle drift when thinking
+        const time = Date.now();
+        setMousePos({ x: Math.sin(time / 1000) * 1.5, y: Math.cos(time / 1200) * 1.5 });
       }
     };
 
@@ -66,12 +70,16 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '', userInput =
   const styles = useMemo(() => {
     const hasAggression = ['bkl', 'bsdk', 'chomu', 'gaandu', 'nalla'].some(w => userInput.toLowerCase().includes(w));
 
+    // Base properties defined in 'common' to ensure all members of the styles union have these keys.
     const common = {
       bowColor: "#e6007e",
       shirtColor: "#e6007e",
       bodyColor: "#ffffff",
       strokeColor: "#000000",
       noseColor: "#fcd116",
+      eyebrows: null as { left: string; right: string } | null,
+      eyebrowClass: "",
+      mouth: null as string | null,
     };
 
     switch (mood) {
@@ -79,15 +87,23 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '', userInput =
         return {
           ...common,
           eyes: { left: "M 38 48 A 1 1 0 1 1 37.9 48", right: "M 62 48 A 1 1 0 1 1 61.9 48", w: 3, h: 4 },
-          mouth: null,
+          eyebrows: { 
+            left: "M 32 40 Q 36 38 40 40", 
+            right: "M 60 40 Q 64 38 68 40" 
+          },
+          eyebrowClass: "animate-thinking-eyebrows",
           glow: hasAggression ? "bg-orange-600/30" : "bg-blue-600/30",
-          headClass: "animate-head-bob-thinking",
+          headClass: "animate-head-bob-thinking-refined",
         };
       case CatMood.ANGRY:
         return {
           ...common,
           eyes: { left: "M 32 44 L 42 52", right: "M 68 44 L 58 52", w: 5, h: 2 },
           mouth: "M 45 65 L 55 65",
+          eyebrows: { 
+            left: "M 30 38 L 42 45", 
+            right: "M 70 38 L 58 45" 
+          },
           glow: "bg-red-600/50",
           headClass: "animate-wiggle",
         };
@@ -111,7 +127,6 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '', userInput =
         return {
           ...common,
           eyes: { left: "M 34 50 Q 40 54 46 50", right: "M 54 50 Q 60 54 66 50", w: 4, h: 2 },
-          mouth: null,
           glow: "bg-blue-900/20",
           headClass: "animate-breathe-sleep",
         };
@@ -119,7 +134,6 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '', userInput =
         return {
           ...common,
           eyes: { left: "M 36 48 A 3.5 4.5 0 1 1 35.9 48", right: "M 64 48 A 3.5 4.5 0 1 1 63.9 48", w: 4.5, h: 6 },
-          mouth: null,
           glow: "bg-zinc-800/20",
           headClass: "animate-idle-purr",
         };
@@ -141,9 +155,14 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '', userInput =
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-5px); }
         }
-        @keyframes head-bob-thinking {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(0, -2px); }
+        @keyframes head-bob-thinking-refined-fx {
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          33% { transform: translate(1.5px, -2px) rotate(1.5deg); }
+          66% { transform: translate(-1.5px, -1px) rotate(-1.5deg); }
+        }
+        @keyframes thinking-eyebrows-fx {
+          0%, 80%, 100% { transform: translateY(0); }
+          85%, 95% { transform: translateY(-3px); }
         }
         @keyframes breathe-sleep-fx {
           0%, 100% { transform: scale(1); }
@@ -156,7 +175,8 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '', userInput =
         }
         .animate-idle-purr { animation: purr-sway 4s ease-in-out infinite; transform-origin: center center; }
         .animate-playful-bounce { animation: playful-bounce-fx 0.6s ease-in-out infinite; }
-        .animate-head-bob-thinking { animation: head-bob-thinking 3s ease-in-out infinite; }
+        .animate-head-bob-thinking-refined { animation: head-bob-thinking-refined-fx 4s ease-in-out infinite; transform-origin: center center; }
+        .animate-thinking-eyebrows { animation: thinking-eyebrows-fx 3s ease-in-out infinite; }
         .animate-breathe-sleep { animation: breathe-sleep-fx 6s ease-in-out infinite; }
         .animate-wiggle { animation: wiggle-fx 0.2s linear infinite; }
       `}</style>
@@ -217,6 +237,14 @@ const CatAvatar: React.FC<CatAvatarProps> = ({ mood, lastReply = '', userInput =
 
         {/* Face Elements */}
         <g transform={`translate(${mousePos.x}, ${mousePos.y})`}>
+          {/* Eyebrows */}
+          {styles.eyebrows && (
+            <g className={styles.eyebrowClass}>
+              <path d={styles.eyebrows.left} fill="none" stroke={styles.strokeColor} strokeWidth="2.5" strokeLinecap="round" />
+              <path d={styles.eyebrows.right} fill="none" stroke={styles.strokeColor} strokeWidth="2.5" strokeLinecap="round" />
+            </g>
+          )}
+
           {/* Eyes */}
           <g style={{ transform: blinkTrigger ? 'scaleY(0.1)' : 'scaleY(1)', transition: 'transform 0.1s', transformOrigin: 'center 48px' }}>
             {mood === CatMood.NEUTRAL || mood === CatMood.PLAYFUL ? (
